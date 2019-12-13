@@ -1079,29 +1079,42 @@ std::vector<int> convert(const vector<unsigned char>& input)
 }
 
 
-std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1, const float x2, bool way,float threshold,float thresholdSat) {
+std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1, const float x2, int typeCorr,float threshold,float thresholdSat,Correction c,int label,float ratioSat254,float ratioSat255,float thresholdRatioSat) {
   const unsigned N=Q.size();
   std::vector<int> QII;
   std::vector<float> QI(N,0);
   Double_t a=1-2*x1-2*x2;
 //  bool debugbool=false;
   TMatrix A(N,N);
+  vector<int>::const_iterator mQ = max_element(Q.begin(), Q.end())	;
 
 //---  que pour 1 max bien net 
+if(typeCorr==2)
+{
  if(Q.size()<2 || Q.size()>8){
 	for (unsigned int i=0;i<Q.size();i++){
 		QII.push_back((int) Q[i]);
   	}
 	return QII;
   }
- if(way){ 
-	  vector<int>::const_iterator mQ = max_element(Q.begin(), Q.end())	;
 	  if(*mQ>253){
 	 	 if(*mQ==255 && *(mQ-1)>253 && *(mQ+1)>253 ) return Q ;
 	 	 if(*(mQ-1)>thresholdSat && *(mQ+1)>thresholdSat && *(mQ-1)<254 && *(mQ+1)<254 &&  abs(*(mQ-1) - *(mQ+1)) < 40 ){
 		     QII.push_back((10*(*(mQ-1))+10*(*(mQ+1)))/2); return QII;}
 	  }
-  }
+}
+
+if(typeCorr==1)
+{
+    if(ratioSat254+ratioSat255>=thresholdRatioSat)
+    {
+        
+    }
+
+
+}
+
+
 //---
 
   for(unsigned int i=0; i<N; i++) {
@@ -1126,8 +1139,6 @@ std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1, const 
   }
 
 return QII;
-}
-
 
 bool clusterCleaning(const SiStripCluster*   cluster,  int crosstalkInv, uint8_t * exitCode)
 {
