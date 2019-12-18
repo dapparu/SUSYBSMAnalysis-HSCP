@@ -4,6 +4,24 @@
 #include "Analysis_PlotFunction.h"
 #include "TVector3.h"
 #include <string>
+#include "SaturationCorrection.h" // New procedure for the correction of the saturation phenomena 
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// global use of the SaturationCorrection class 
+// Need to have the class in Analysis_CommonFunction.h & in Analysis_Step1_EventLoop_NewCorrection.C 
+// Step1 uses the functions in CommonFunction.h
+// Need to load the correction parameters from a file
+//
+
+
+TFile* fileparameters = TFile::Open("CorrectionParameters.root");
+TTree* treeparameters = (TTree*) fileparameters->Get("tree");
+SaturationCorrection sc;
+sc.SetTree(*treeparameters);
+sc.ReadParameters();
+
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 // general purpose code 
@@ -714,7 +732,7 @@ void printStripCluster(FILE* pFile, const SiStripCluster*   cluster, const DetId
 void printClusterCleaningMessage (uint8_t exitCode);
 std::vector<int> convert(const vector<unsigned char>& input);
 std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1=0.10, const float x2=0.04, bool way=true,float threshold=20,float thresholdSat=25);
-
+std::vector<int> Correction(const std::vector<int>& Q,const int label,const float rsat,float thresholdSat=25,float thresholdDeltaQ=40,float thresoldrsat=0.6);
 
 class dedxGainCorrector{
    private:
@@ -920,8 +938,26 @@ DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* tem
      unsigned int SiStripNOM = 0;
      double lowerStripDeDx=1000;
      int lowerStripDeDxIndex=-1;
+     //loop in order to have the number of saturated clusters in the track
+     unsigned int NSatCluster=0;
+     for(unsigned int h=0;h<dedxHits->size();h++)
+     {
+         if(detid.subdetId()>=3)
+         {
+             bool test_sat=false;
+             const SiStripCluster* cluster = dedxHits->stripCluster(h);
+             vector<int> amplitudes = convert(cluster->amplitudes());
+             for(unsigned int i=0;i<amplitudes.size();i++)
+             {
+                 if(amplitudes.at(i)>253) test_sat=true;
+             }
+         }
+         if(test_sat) NSatCluster++;
+     }
+     float rsat = (float)NSatCluster/(float)dedxHits->size();
+
      for(unsigned int h=0;h<dedxHits->size();h++){
-        DetId detid(dedxHits->detId(h));  
+        SiStripDetId detid(dedxHits->detId(h));  
         if(!usePixel && detid.subdetId()<3)continue; // skip pixels
         if(!useStrip && detid.subdetId()>=3)continue; // skip strips        
         if(useClusterCleaning && !clusterCleaning(dedxHits->stripCluster(h), crossTalkInvAlgo))continue;
@@ -931,11 +967,22 @@ DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* tem
         if(detid.subdetId()>=3 && ++SiStripNOM > MaxStripNOM) continue; // skip remaining strips, but not pixel
 
         int ClusterCharge = dedxHits->charge(h);
+        int label_moduleGeometry = detid.moduleGeometry();
 
         if(detid.subdetId()>=3){//for strip only
            const SiStripCluster* cluster = dedxHits->stripCluster(h);
            vector<int> amplitudes = convert(cluster->amplitudes());
-           if (crossTalkInvAlgo) amplitudes = CrossTalkInv(amplitudes, 0.10, 0.04, true);
+           /////////////////////////////////////////////////////////////////////
+           //
+           // 1 : current correction & use of cross talk inversion
+           // 2 : proposal & NO use of cross talk inversion
+           // 3 : proposal & use of cross talk inversion (no re correction -- see bool=false
+           //
+           /////////////////////////////////////////////////////////////////////
+           if (crossTalkInvAlgo==1) amplitudes = Correction(amplitudes,label_moduleGeometry,rsat,25,40,0.6);
+           if (crossTalkInvAlgo==2) amplitudes = CrossTalkInv(amplitudes, 0.10, 0.04, true);
+           if (crossTalkInvAlgo==3) amplitudes = CrossTalkInv(Correction(amplitudes,label_moduleGeometry,rsat,25,40,0.6), 0.10, 0.04, false);
+
            int firstStrip = cluster->firstStrip();
            int prevAPV = -1;
            double gain = 1.0;
@@ -1079,42 +1126,29 @@ std::vector<int> convert(const vector<unsigned char>& input)
 }
 
 
-std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1, const float x2, int typeCorr,float threshold,float thresholdSat,Correction c,int label,float ratioSat254,float ratioSat255,float thresholdRatioSat) {
+std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1, const float x2, bool way,float threshold,float thresholdSat) {
   const unsigned N=Q.size();
   std::vector<int> QII;
   std::vector<float> QI(N,0);
   Double_t a=1-2*x1-2*x2;
 //  bool debugbool=false;
   TMatrix A(N,N);
-  vector<int>::const_iterator mQ = max_element(Q.begin(), Q.end())	;
 
 //---  que pour 1 max bien net 
-if(typeCorr==2)
-{
  if(Q.size()<2 || Q.size()>8){
 	for (unsigned int i=0;i<Q.size();i++){
 		QII.push_back((int) Q[i]);
   	}
 	return QII;
   }
+ if(way){ 
+	  vector<int>::const_iterator mQ = max_element(Q.begin(), Q.end())	;
 	  if(*mQ>253){
 	 	 if(*mQ==255 && *(mQ-1)>253 && *(mQ+1)>253 ) return Q ;
 	 	 if(*(mQ-1)>thresholdSat && *(mQ+1)>thresholdSat && *(mQ-1)<254 && *(mQ+1)<254 &&  abs(*(mQ-1) - *(mQ+1)) < 40 ){
 		     QII.push_back((10*(*(mQ-1))+10*(*(mQ+1)))/2); return QII;}
 	  }
-}
-
-if(typeCorr==1)
-{
-    if(ratioSat254+ratioSat255>=thresholdRatioSat)
-    {
-        
-    }
-
-
-}
-
-
+  }
 //---
 
   for(unsigned int i=0; i<N; i++) {
@@ -1139,6 +1173,64 @@ if(typeCorr==1)
   }
 
 return QII;
+}
+
+
+std::vector<int> Correction(const std::vector<int>& Q,const int label,const float rsat,float thresholdSat,float thresholdDeltaQ,float thresholdrsat);
+{
+    const unsigned N=Q.size();
+    std::vector<int> Qcorr;
+    int total_charge=0;
+    int nsat=0;
+    float Qmin=0.;
+    float Qplus=0.;
+    bool testQmin=true;
+    for(unsigned int i=0;i<N;i++)
+    {
+        total_charge+=Q.at(i);
+        if(Q.at(i)>253) nsat++;
+        if(Q.at(i)>253 && testQmin)
+        {
+            testQmin=false;
+            Qmin=Q.at(i-1);
+        }
+        if(Q.at(i)>253)
+        {
+            Qplus=Q.at(i+1);
+        }
+        Qcorr.push_back(Q.at(i));
+    }
+    float DeltaQ=abs(Qmin-Qplus);
+    float charge_corr=sc.ChargeCorrected(total_charge,label,N,nsat);
+    float DeltaChargeCorr = charge_corr-total_charge;
+    if(rsat>=thresholdrsat && Qmin>=thresholdSat && Qplus>=thresholdSat && DeltaQ<=thresholdDeltaQ)
+    {
+        if(N==1)
+        {
+            vector<int>::iterator maxQ = max_element(Qcorr.begin(),Qcorr.end());
+            Qcorr.at(std::distance(Qcorr.begin(),maxQ))+=DeltaChargeCorr;
+        }
+        if(N==2 && label<5)
+        {
+            vector<int>::iterator maxQ = max_element(Qcorr.begin(),Qcorr.end());
+            if(Qcorr.at(maxQ+1)<254) return Qcorr;
+            Qcorr.at(std::distance(Qcorr.begin(),maxQ))+=DeltaChargeCorr/2;
+            Qcorr.at(std::distance(Qcorr.begin(),maxQ+1))+=DeltaChargeCorr/2;
+        }
+    }
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// if a no saturated strip is between two saturated strips the method return the cluster without correction
+//
+// if more than one saturated strip the correction method is only used in the barrel (cut on label<5)
+//
+// the difference between the charge & the corrected charge is shared with the saturated strips
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    return Qcorr;
+}
+
 
 bool clusterCleaning(const SiStripCluster*   cluster,  int crosstalkInv, uint8_t * exitCode)
 {

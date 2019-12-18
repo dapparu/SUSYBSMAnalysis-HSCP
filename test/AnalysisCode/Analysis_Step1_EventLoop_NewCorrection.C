@@ -36,7 +36,6 @@ namespace reweight{ class PoissonMeanShifter;}
 #include "SimDataFormats/PileupSummaryInfo/interface/PileupSummaryInfo.h"
 
 
-
 using namespace fwlite;
 using namespace reco;
 using namespace susybsm;
@@ -57,9 +56,6 @@ using namespace reweight;
 #include "Analysis_Samples.h"
 #include "Analysis_TOFUtility.h"
 #include "tdrstyle.C"
-#include "Correction.h"
-
-
 
 /////////////////////////// FUNCTION DECLARATION /////////////////////////////
 
@@ -1045,11 +1041,6 @@ void Analysis_FillControlAndPredictionHist(const susybsm::HSCParticle& hscp, con
 // Looping on all events, tracks, selection and check how many events are entering the mass distribution
 void Analysis_Step1_EventLoop(char* SavePath)
 {
-
-   //Initialize the saturation correction method
-   Correction satCorr;
-   TFile* fileCorrectionParameters
-
    //Initialize a RandomNumberGenerator
    TRandom3* RNG = new TRandom3();
 
