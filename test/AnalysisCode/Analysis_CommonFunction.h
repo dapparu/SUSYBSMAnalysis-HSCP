@@ -1205,7 +1205,8 @@ std::vector<int> Correction(const std::vector<int>& Q,const int label,const floa
         //// the difference between the charge & the corrected charge is shared with the saturated strips
         ////
         //////////////////////////////////////////////////////////////////////////////////////////////////////
-        //
+        
+        
         return Qcorr;
 }
 
