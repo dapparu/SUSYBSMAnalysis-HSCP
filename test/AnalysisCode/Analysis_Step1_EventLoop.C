@@ -36,6 +36,7 @@ namespace reweight{ class PoissonMeanShifter;}
 #include "SimDataFormats/PileupSummaryInfo/interface/PileupSummaryInfo.h"
 
 
+
 using namespace fwlite;
 using namespace reco;
 using namespace susybsm;
@@ -57,13 +58,15 @@ using namespace reweight;
 #include "Analysis_TOFUtility.h"
 #include "tdrstyle.C"
 
+
+
 /////////////////////////// FUNCTION DECLARATION /////////////////////////////
 
 void InitHistos(stPlots* st=NULL);
 void Analysis_Step1_EventLoop(char* SavePath);
 
 bool PassTrigger(const fwlite::ChainEvent& ev, bool isData, bool isCosmic=false, L1BugEmulator* emul=NULL);
-bool   PassPreselection(const susybsm::HSCParticle& hscp, const DeDxHitInfo* dedxHits, const reco::DeDxData* dedxSObj, const reco::DeDxData* dedxMObj, const reco::MuonTimeExtra* tof, const reco::MuonTimeExtra* dttof, const reco::MuonTimeExtra* csctof, const fwlite::ChainEvent& ev, stPlots* st=NULL, const double& GenBeta=-1, bool RescaleP=false, const double& RescaleI=0.0, const double& RescaleT=0.0, double MassErr=-1);
+bool   PassPreselection(const susybsm::HSCParticle& hscp, const DeDxHitInfo* dedxHits, const reco::DeDxData* dedxSObj, const reco::DeDxData* dedxMObj, const reco::MuonTimeExtra* tof, const reco::MuonTimeExtra* dttof, const reco::MuonTimeExtra* csctof, const fwlite::ChainEvent& ev, stPlots* st=NULL, const double& GenBeta=-1, bool RescaleP=false, const double& RescaleI=0.0, const double& RescaleT=0.0);
 bool PassSelection(const susybsm::HSCParticle& hscp,  const reco::DeDxData* dedxSObj, const reco::DeDxData* dedxMObj, const reco::MuonTimeExtra* tof, const fwlite::ChainEvent& ev, const int& CutIndex=0, stPlots* st=NULL, const bool isFlip=false, const double& GenBeta=-1, bool RescaleP=false, const double& RescaleI=0.0, const double& RescaleT=0.0);
 void Analysis_FillControlAndPredictionHist(const susybsm::HSCParticle& hscp, const reco::DeDxData* dedxSObj, const reco::DeDxData* dedxMObj, const reco::MuonTimeExtra* tof, stPlots* st=NULL);
 double SegSep(const susybsm::HSCParticle& hscp, const fwlite::ChainEvent& ev, double& minPhi, double& minEta);
@@ -109,7 +112,7 @@ TH3F* dEdxTemplates = NULL;
 dedxGainCorrector trackerCorrector;
 double dEdxSF [2] = {
    1.00000,   // [0]  unchanged
-   1.464//1.21836    // [1]  Pixel data to SiStrip data
+   1.21836    // [1]  Pixel data to SiStrip data
 };
 dedxHIPEmulator HIPemulator;
 dedxHIPEmulator HIPemulatorUp (false, "ratePdfPixel_Up", "ratePdfStrip_Up");
@@ -117,10 +120,10 @@ dedxHIPEmulator HIPemulatorDown (false, "ratePdfPixel_Down", "ratePdfStrip_Down"
 L1BugEmulator        L1Emul;
 HIPTrackLossEmulator HIPTrackLossEmul;
 
-bool useClusterCleaning = true;
+bool useClusterCleaning = false; //study on the effect of the correction method
 /////////////////////////// CODE PARAMETERS /////////////////////////////
 
-void Analysis_Step1_EventLoop(string MODE="COMPILE", int TypeMode_=0, string InputSampleName="")
+void Analysis_Step1_EventLoop(string MODE="COMPILE", int TypeMode_=0, string InputSampleName="", int TypeCorrection_=1)
 {
    if(MODE=="COMPILE")return;
 
@@ -137,8 +140,14 @@ void Analysis_Step1_EventLoop(string MODE="COMPILE", int TypeMode_=0, string Inp
    gStyle->SetNdivisions(505);
    TH1::AddDirectory(kTRUE);
 
+
+   //load the parameters using in the new correction method
+   LoadCorrectionParameters();
+
+
    // redefine global variable dependent on the arguments given to the function
    TypeMode       = TypeMode_;
+   TypeCorrection = TypeCorrection_;
 
    //AnalysisType dependent cuts
    if(TypeMode<2){  
@@ -162,6 +171,7 @@ void Analysis_Step1_EventLoop(string MODE="COMPILE", int TypeMode_=0, string Inp
      GlobalMinNDOF      = 0; //tkOnly analysis --> comment these 2 lines to use only global muon tracks
      GlobalMinTOF       = 0;
    }
+
    
    // define the selection to be considered later for the optimization
    // WARNING: recall that this has a huge impact on the analysis time AND on the output file size --> be carefull with your choice
@@ -222,7 +232,6 @@ void Analysis_Step1_EventLoop(string MODE="COMPILE", int TypeMode_=0, string Inp
    sprintf(Command,"mkdir -p %s",Buffer); system(Command);
 
    // get all the samples and clean the list to keep only the one we want to run on... Also initialize the BaseDirectory
-   printf(" InitBaseDirectory() <-------------\n");
    InitBaseDirectory();
    GetSampleDefinition(samples);
    samplesFull = samples;
@@ -244,29 +253,24 @@ std::cout<<"A\n";
 
    //initialize LumiReWeighting
    //FIXME  pileup scenario must be updated based on data/mc
-   bool is2016  = (samples[0].Name.find("13TeV16") !=std::string::npos)?true:false;
-   bool is2016G = (samples[0].Name.find("13TeV16G")!=std::string::npos)?true:false;
+   bool is2016 = (samples[0].Name.find("13TeV16")!=std::string::npos)?true:false;
    HIPemulator.    setPeriodHIPRate(is2016);
    HIPemulatorUp.  setPeriodHIPRate(is2016);
    HIPemulatorDown.setPeriodHIPRate(is2016);
    if(samples[0].Pileup=="S15"){        for(int i=0; i<100; ++i) BgLumiMC.push_back(Pileup_MC_Startup2015_25ns[i]);
-   }else if(samples[0].Pileup=="NoPU" && !is2016 && !is2016G){ for(int i=0; i<100; ++i) BgLumiMC.push_back(TrueDist2015_f[i]); //Push same as 2015 data to garantee no PU reweighting
-   }else if(samples[0].Pileup=="NoPU" && is2016 && !is2016G) { for(int i=0; i<100; ++i) BgLumiMC.push_back(TrueDist2016_f[i]); //Push same as 2016 data to garantee no PU reweighting
-   }else if(samples[0].Pileup=="NoPU" && is2016 && is2016G) { for(int i=0; i<100; ++i) BgLumiMC.push_back(TrueDist2016G_f[i]); //Push same as 2016 data to garantee no PU reweighting
+   }else if(samples[0].Pileup=="NoPU" && !is2016){ for(int i=0; i<100; ++i) BgLumiMC.push_back(TrueDist2015_f[i]); //Push same as 2015 data to garantee no PU reweighting
+   }else if(samples[0].Pileup=="NoPU" && is2016) { for(int i=0; i<100; ++i) BgLumiMC.push_back(TrueDist2016_f[i]); //Push same as 2016 data to garantee no PU reweighting
    }else if (samples[0].Pileup=="S10"){ for(int i=0; i<100; ++i) BgLumiMC.push_back(Pileup_MC_Summer2012[i]);
    }else{                               for(int i=0; i<100; ++i) BgLumiMC.push_back(Pileup_MC_Fall11[i]);
    }
 std::cout<<"A1\n";
 
-   if (!is2016 && !is2016G){
+   if (!is2016){
       for(int i=0; i<100; ++i) TrueDist    .push_back(TrueDist2015_f[i]);
       for(int i=0; i<100; ++i) TrueDistSyst.push_back(TrueDist2015_XSecShiftUp_f[i]);
-   } else if (is2016 && !is2016G){
+   } else if (is2016){
       for(int i=0; i<100; ++i) TrueDist    .push_back(TrueDist2016_f[i]);
       for(int i=0; i<100; ++i) TrueDistSyst.push_back(TrueDist2016_XSecShiftUp_f[i]);
-   }  else if (is2016 && is2016G){
-      for(int i=0; i<100; ++i) TrueDist    .push_back(TrueDist2016G_f[i]);
-      for(int i=0; i<100; ++i) TrueDistSyst.push_back(TrueDist2016G_XSecShiftUp_f[i]);
    }
    
 std::cout<<"A2\n";
@@ -367,7 +371,7 @@ double TreeDXY = -1;
 double TreeDZ = -1;
 bool isCosmicSB = false;
 bool isSemiCosmicSB = false;
-bool PassPreselection(const susybsm::HSCParticle& hscp, const DeDxHitInfo* dedxHits,  const reco::DeDxData* dedxSObj, const reco::DeDxData* dedxMObj, const reco::MuonTimeExtra* tof, const reco::MuonTimeExtra* dttof, const reco::MuonTimeExtra* csctof, const fwlite::ChainEvent& ev, stPlots* st, const double& GenBeta, bool RescaleP, const double& RescaleI, const double& RescaleT, double MassErr)
+bool PassPreselection(const susybsm::HSCParticle& hscp, const DeDxHitInfo* dedxHits,  const reco::DeDxData* dedxSObj, const reco::DeDxData* dedxMObj, const reco::MuonTimeExtra* tof, const reco::MuonTimeExtra* dttof, const reco::MuonTimeExtra* csctof, const fwlite::ChainEvent& ev, stPlots* st, const double& GenBeta, bool RescaleP, const double& RescaleI, const double& RescaleT)
 {
    if(TypeMode==1 && !(hscp.type() == HSCParticleType::trackerMuon || hscp.type() == HSCParticleType::globalMuon))return false;
    if( (TypeMode==2 || TypeMode==4) && hscp.type() != HSCParticleType::globalMuon)return false;
@@ -461,8 +465,6 @@ bool PassPreselection(const susybsm::HSCParticle& hscp, const DeDxHitInfo* dedxH
    if(st){st->TNOH  ->Fill(0.0,Event_Weight);
      if(dedxSObj){
          st->BS_TNOM->Fill(dedxSObj->numberOfMeasurements(),Event_Weight);
-         if(track->found() - dedxSObj->numberOfMeasurements()) 
-             st->BS_EtaNBH->Fill(track->eta(), track->found() - dedxSObj->numberOfMeasurements(), Event_Weight);
          if(PUA)st->BS_TNOM_PUA->Fill(dedxSObj->numberOfMeasurements(),Event_Weight);
          if(PUB)st->BS_TNOM_PUB->Fill(dedxSObj->numberOfMeasurements(),Event_Weight);
      }
@@ -479,8 +481,7 @@ bool PassPreselection(const susybsm::HSCParticle& hscp, const DeDxHitInfo* dedxH
           st->BS_Qual->Fill(track->qualityMask(),Event_Weight);
    }
 
-   if(TypeMode!=3 && track->qualityMask()<GlobalMinQual )return false; // FIXME Tracks with quality > 2 are bad also!
-//   if(TypeMode!=3 && track->qualityMask() != FixedQual)return false; // FIXME if this is true, no tracks pass eventually ... so what now?
+   if(TypeMode!=3 && track->qualityMask()<GlobalMinQual )return false;
    if(st){st->Qual  ->Fill(0.0,Event_Weight);
           st->BS_Chi2->Fill(track->chi2()/track->ndof(),Event_Weight);
    }
@@ -593,7 +594,7 @@ bool PassPreselection(const susybsm::HSCParticle& hscp, const DeDxHitInfo* dedxH
 //     if(TypeMode!=4){       if(EoP>GlobalMaxEIsol)return false;     }
      if(EoP>GlobalMaxEIsol)return false;
      if(st){st->EIsol   ->Fill(0.0,Event_Weight);}
-     
+    
      // relative tracker isolation
      if (st) {  st->BS_SumpTOverpT->Fill(hscpIso.Get_TK_SumEt()/track->pt(), Event_Weight); }
 //     if(TypeMode==4) { if(hscpIso.Get_TK_SumEt()/track->pt()>GlobalMaxRelTIsol)return false;   }
@@ -603,7 +604,6 @@ bool PassPreselection(const susybsm::HSCParticle& hscp, const DeDxHitInfo* dedxH
 
    if(st){st->BS_Pterr ->Fill(track->ptError()/track->pt(),Event_Weight);}
    if(TypeMode!=3 && (track->ptError()/track->pt())>GlobalMaxPterr)return false;
-   if(MassErr > 0 && MassErr > 2.2)return false; //FIXME jozze -- cut on relative mass error in units of 8*MassErr/Mass
 
    if(std::max(0.0,track->pt())<GlobalMinPt)return false;
    if(st){st->Pterr   ->Fill(0.0,Event_Weight);}
@@ -1050,6 +1050,9 @@ void Analysis_FillControlAndPredictionHist(const susybsm::HSCParticle& hscp, con
 // Looping on all events, tracks, selection and check how many events are entering the mass distribution
 void Analysis_Step1_EventLoop(char* SavePath)
 {
+   //Load the parameters using in the new correction method
+   LoadCorrectionParameters();
+
    //Initialize a RandomNumberGenerator
    TRandom3* RNG = new TRandom3();
 
@@ -1061,8 +1064,7 @@ void Analysis_Step1_EventLoop(char* SavePath)
       bool isMC     = (samples[s].Type==1);
       bool isSignal = (samples[s].Type>=2);
       bool is2016   = (samples[s].Name.find("13TeV16")==std::string::npos)?false:true;
-      bool is2016G  = (samples[s].Name.find("13TeV16G")==std::string::npos)?false:true;
-
+      
       dEdxK_Data = is2016?dEdxK_Data16:dEdxK_Data15;
       dEdxC_Data = is2016?dEdxC_Data16:dEdxC_Data15;
       dEdxK_MC   = is2016?dEdxK_MC16:dEdxK_MC15;
@@ -1074,20 +1076,17 @@ std::cout<<"D\n";
       string analysis_path (basepath);
       if(isData){ 
          dEdxSF [0] = 1.00000;
-	 dEdxSF[1] = 1.6107 *0.9134500*0.9999500;  //PreG SF
-	 //if (is2016G) dEdxSF[1] = 1.6107*0.9726500*0.9868500;  //PostG - first period  -- change for the other two periods later
-	 //dEdxTemplates = loadDeDxTemplate(analysis_path+"../../data/Data13TeV_Deco_SiStripDeDxMip_3D_Rcd_v2_CCwCI.root");
-	 dEdxTemplates = loadDeDxTemplate(analysis_path+"../../data/dEdxTemplate_hit_SP_in_noC_CCC_RunPreG.root");
+         dEdxSF [1] = (is2016)?1.41822:1.21836;
+         dEdxTemplates = loadDeDxTemplate((!is2016)?(analysis_path+"../../data/Data13TeV_Deco_SiStripDeDxMip_3D_Rcd_v2_CCwCI.root"):(analysis_path+"../../data/Data13TeV16_dEdxTemplate.root"), true);
       }else{  
          dEdxSF [0] = (is2016)?1.09711:1.09708;
          dEdxSF [1] = (is2016)?1.09256:1.01875;
-         dEdxTemplates = loadDeDxTemplate((!is2016)?(analysis_path+"../../data/MC13TeV_Deco_SiStripDeDxMip_3D_Rcd_v2_CCwCI.root"):(analysis_path+"../../data/MC13TeV16_dEdxTemplate.root"), true); // this will need to be checked if we rerun on MC
+         dEdxTemplates = loadDeDxTemplate((!is2016)?(analysis_path+"../../data/MC13TeV_Deco_SiStripDeDxMip_3D_Rcd_v2_CCwCI.root"):(analysis_path+"../../data/MC13TeV16_dEdxTemplate.root"), true);
       }
 
 std::cout<<"E\n";
 
- if(isData){    trackerCorrector.LoadDeDxCalibration(analysis_path+"../../data/Data13TeVGains_v2.root");  //Je: those are the correct calib tree to use. I don't know why the default was null, but it was wrong
-	// if(isData){    trackerCorrector.TrackerGains = NULL;
+      if(isData){    trackerCorrector.LoadDeDxCalibration(analysis_path+"../../data/Data13TeVGains_v2.root"); 
       }else{ trackerCorrector.TrackerGains = NULL; //FIXME check gain for MC
       }
 
@@ -1099,17 +1098,14 @@ std::cout<<"F\n";
       if(isData) stPlots_Init(HistoFile,plotsMap[samples[s].Name],samples[s].Name, CutPt.size(), false, false, CutPt_Flip.size());
       else stPlots_Init(HistoFile,plotsMap[samples[s].Name],samples[s].Name, CutPt.size());
       stPlots* SamplePlots = &plotsMap[samples[s].Name];
-      if (is2016G)                 SamplePlots->IntLumi->Fill(0.0,IntegratedLuminosity13TeV16G);
-      else if (!is2016G && is2016) SamplePlots->IntLumi->Fill(0.0,IntegratedLuminosity13TeV16PreG);
-      else                         SamplePlots->IntLumi->Fill(0.0,IntegratedLuminosity13TeV15);
+      SamplePlots->IntLumi->Fill(0.0,!is2016?IntegratedLuminosity13TeV15:IntegratedLuminosity13TeV16);
 
       string MCTrDirName = "MCTr_13TeV";
       if(isMC){
-         if(samples[s].Name.find("7TeV")!=string::npos)          MCTrDirName = "MCTr_7TeV";
-	 else if(samples[s].Name.find("8TeV")!=string::npos)     MCTrDirName = "MCTr_8TeV";
-	 else if(samples[s].Name.find("13TeV16G")!=string::npos) MCTrDirName = "MCTr_13TeV16G";
-	 else if(samples[s].Name.find("13TeV16")!=string::npos)  MCTrDirName = "MCTr_13TeV16";
-	 else if(plotsMap.find(MCTrDirName)==plotsMap.end()){plotsMap[MCTrDirName] = stPlots();}
+         if(samples[s].Name.find("7TeV")!=string::npos) MCTrDirName = "MCTr_7TeV";
+         if(samples[s].Name.find("8TeV")!=string::npos) MCTrDirName = "MCTr_8TeV";
+         if(samples[s].Name.find("13TeV16")!=string::npos) MCTrDirName = "MCTr_13TeV16";
+         if(plotsMap.find(MCTrDirName)==plotsMap.end()){plotsMap[MCTrDirName] = stPlots();}
          stPlots_Init(HistoFile,plotsMap[MCTrDirName],MCTrDirName, CutPt.size(), false, false, CutPt_Flip.size());
       }stPlots* MCTrPlots = &plotsMap[MCTrDirName];
 
@@ -1174,16 +1170,8 @@ std::cout<<"F\n";
               if(MaxEntry>0 && ientry>MaxEntry)break;
               NMCevents += GetPUWeight(ev, samples[s].Pileup, PUSystFactor, LumiWeightsMC, LumiWeightsMCSyst);
             }
-            if(samples[s].Type==1){
-              if      (is2016G) SampleWeight = GetSampleWeightMC (IntegratedLuminosity13TeV16G,    FileName, samples[s].XSec, ev.size(), NMCevents, numberOfMatchingSamples(samples[s].Name, samplesFull));
-	      else if (is2016)  SampleWeight = GetSampleWeightMC (IntegratedLuminosity13TeV16PreG, FileName, samples[s].XSec, ev.size(), NMCevents, numberOfMatchingSamples(samples[s].Name, samplesFull));
-	      else              SampleWeight = GetSampleWeightMC (IntegratedLuminosity13TeV15,     FileName, samples[s].XSec, ev.size(), NMCevents, numberOfMatchingSamples(samples[s].Name, samplesFull));
-	    }
-            else {
-              if      (is2016G) SampleWeight = GetSampleWeight (IntegratedLuminosity13TeV16G,    IntegratedLuminosityBeforeTriggerChange,samples[s].XSec,NMCevents, period);
-	      else if (is2016)  SampleWeight = GetSampleWeight (IntegratedLuminosity13TeV16PreG, IntegratedLuminosityBeforeTriggerChange,samples[s].XSec,NMCevents, period);
-	      else              SampleWeight = GetSampleWeight (IntegratedLuminosity13TeV15,     IntegratedLuminosityBeforeTriggerChange,samples[s].XSec,NMCevents, period);
-	    }
+            if(samples[s].Type==1)SampleWeight = GetSampleWeightMC(is2016?IntegratedLuminosity13TeV16:IntegratedLuminosity13TeV15,FileName, samples[s].XSec, ev.size(), NMCevents, numberOfMatchingSamples(samples[s].Name, samplesFull));
+            else                  SampleWeight = GetSampleWeight  (is2016?IntegratedLuminosity13TeV16:IntegratedLuminosity13TeV15,IntegratedLuminosityBeforeTriggerChange,samples[s].XSec,NMCevents, period);
          }
 
 	 if(SampleWeight==0) continue; //If sample weight 0 don't run, happens Int Lumi before change = 0
@@ -1201,43 +1189,14 @@ std::cout<<"G\n";
             if(ientry%TreeStep==0){printf(".");fflush(stdout);}
             if(checkDuplicates && duplicateChecker.isDuplicate(ev.eventAuxiliary().run(), ev.eventAuxiliary().event()))continue;
 
-	    //Je: once we have the templates we have to update those lines below as well.. 
             //if run change, update conditions
             if(CurrentRun != ev.eventAuxiliary().run()){
                CurrentRun = ev.eventAuxiliary().run();
                tofCalculator.setRun(CurrentRun);
                trackerCorrector.setRun(CurrentRun);
-
-	       if (278018 <= CurrentRun && CurrentRun < 278770){
-		 dEdxK_Data = 2.205;
-                 dEdxC_Data = 3.468;
-                 dEdxSF [1] = 1.6107*0.9726500*0.9868500;
-		 dEdxTemplates = loadDeDxTemplate(analysis_path+"../../data/dEdxTemplate_hit_SP_in_noC_CCC_Region1.root");
-
-	       }
-
-	       if (278770 <= CurrentRun && CurrentRun < 278822){
-		 dEdxK_Data = 2.426;
-		 dEdxC_Data = 3.869;
-		 dEdxSF [1] = 1.6107*1.0666500*1.0070500;
-		 dEdxTemplates = loadDeDxTemplate(analysis_path+"../../data/dEdxTemplate_hit_SP_in_noC_CCC_Region2.root");
-	       }
-
-	       if (278822 <= CurrentRun && CurrentRun < 279479){
-		 dEdxK_Data = 2.426;
-		 dEdxC_Data = 3.838;
-		 dEdxSF [1]  = 1.6107*1.0769500*1.0067500;
-		 dEdxTemplates = loadDeDxTemplate(analysis_path+"../../data/dEdxTemplate_hit_SP_in_noC_CCC_Region3.root");
-	       }
-
-	       if (279479 <= CurrentRun){
-		 dEdxK_Data = 2.436;
-		 dEdxC_Data = 3.724;
-		 dEdxSF [1] = 1.6107*1.0448500*0.9991500;
-		 dEdxTemplates = loadDeDxTemplate(analysis_path+"../../data/dEdxTemplate_hit_SP_in_noC_CCC_Region4.root");
-	       }
-
             }
+
+
 
             //compute event weight
             if(samples[s].Type>0){Event_Weight = SampleWeight * GetPUWeight(ev, samples[s].Pileup, PUSystFactor, LumiWeightsMC, LumiWeightsMCSyst);}else{Event_Weight = 1;}
@@ -1286,11 +1245,11 @@ std::cout<<"G\n";
             SamplePlots      ->TotalEPU->Fill(0.0,Event_Weight*PUSystFactor);
             if(isMC)MCTrPlots->TotalEPU->Fill(0.0,Event_Weight*PUSystFactor);
 	    //See if event passed signal triggers
-            if(!PassTrigger(ev, isData, false, (is2016&&!is2016G)?&L1Emul:NULL) ) {
+            if(!PassTrigger(ev, isData, false, is2016?&L1Emul:NULL) ) {
 	      //For TOF only analysis if the event doesn't pass the signal triggers check if it was triggered by the no BPTX cosmic trigger
 	      //If not TOF only then move to next event
 	      if(TypeMode!=3) continue;
-	      if(!PassTrigger(ev, isData, true, (is2016&&!is2016G)?&L1Emul:NULL)) continue;
+	      if(!PassTrigger(ev, isData, true, is2016?&L1Emul:NULL)) continue;
 
 	      //If is cosmic event then switch plots to use to the ones for cosmics
 	      SamplePlots=&plotsMap[CosmicName];
@@ -1378,8 +1337,6 @@ std::cout<<"G\n";
 	       }
                //skip events without track
 	       if(track.isNull())continue;
-	       // FIXME jozze skip events with |Eta| > 0.9 (out of the barrel)
-	       //if(track->eta()>0.9 || track->eta() < -0.9) continue;
 
                //require a track segment in the muon system
                if(TypeMode>1 && TypeMode!=5 && (muon.isNull() || !muon->isStandAloneMuon()))continue; 
@@ -1393,7 +1350,7 @@ std::cout<<"G\n";
                if(isSignal && DistToHSCP(hscp, genColl, ClosestGen)>0.03)continue;
 
 	       // we are losing some tracks due to HIP
-	       if(!isData && is2016 && !is2016G && !HIPTrackLossEmul.TrackSurvivesHIPInefficiency()) continue;
+	       if(!isData && is2016 && !HIPTrackLossEmul.TrackSurvivesHIPInefficiency()) continue;
 
                //load quantity associated to this track (TOF and dEdx)
                const DeDxHitInfo* dedxHits = NULL;
@@ -1420,11 +1377,10 @@ std::cout<<"G\n";
 
                //Compute dE/dx on the fly
                //computedEdx(dedxHits, Data/MC scaleFactor, templateHistoForDiscriminator, usePixel, useClusterCleaning, reverseProb)
-	       double dEdxErr = 0;
-               DeDxData dedxSObjTmp  = computedEdx(dedxHits, dEdxSF, dEdxTemplates, true, useClusterCleaning, TypeMode==5, false, trackerCorrector.TrackerGains, true, true, 99, false, 1, 0.00, NULL);
-               DeDxData dedxMObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, 1, 0.15, (!isData && !is2016G)?&HIPemulator:NULL, &dEdxErr);
-               DeDxData dedxMUpObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, 1, 0.15, (!isData && !is2016G)?&HIPemulatorUp:NULL);
-               DeDxData dedxMDownObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, 1, 0.15, (!isData && !is2016G)?&HIPemulatorDown:NULL);
+               DeDxData dedxSObjTmp  = computedEdx(dedxHits, dEdxSF, dEdxTemplates, true, useClusterCleaning, TypeMode==5, false, trackerCorrector.TrackerGains, true, true, 99, false, TypeCorrection, 0.00, NULL);
+               DeDxData dedxMObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, TypeCorrection, 0.15, (!isData)?&HIPemulator:NULL);
+               DeDxData dedxMUpObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, TypeCorrection, 0.15, (!isData)?&HIPemulatorUp:NULL);
+               DeDxData dedxMDownObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, TypeCorrection, 0.15, (!isData)?&HIPemulatorDown:NULL); //HERE - MAURO
                DeDxData* dedxSObj  = dedxSObjTmp.numberOfMeasurements()>0?&dedxSObjTmp:NULL;
                DeDxData* dedxMObj  = dedxMObjTmp.numberOfMeasurements()>0?&dedxMObjTmp:NULL;
                DeDxData* dedxMUpObj = dedxMUpObjTmp.numberOfMeasurements()>0?&dedxMUpObjTmp:NULL;
@@ -1596,8 +1552,8 @@ std::cout<<"G\n";
                }//End of systematic computation for signal
 
                //check if the canddiate pass the preselection cuts
-               if(isMC)PassPreselection( hscp, dedxHits, dedxSObj, dedxMObj, tof, dttof, csctof, ev, MCTrPlots  , -1, false, 0, 0, GetMassErr (track->p(), track->ptError(), dedxMObj?dedxMObj->dEdx():-1, dEdxErr, GetMass(track->p(), dedxMObj?dedxMObj->dEdx():-1, !isData)));
-               if(    !PassPreselection( hscp, dedxHits, dedxSObj, dedxMObj, tof, dttof, csctof, ev, SamplePlots, isSignal?genColl[ClosestGen].p()/genColl[ClosestGen].energy():-1, false, 0, 0, GetMassErr (track->p(), track->ptError(), dedxMObj?dedxMObj->dEdx():-1, dEdxErr, GetMass(track->p(), dedxMObj?dedxMObj->dEdx():-1, !isData)))) continue;
+               if(isMC)PassPreselection( hscp, dedxHits, dedxSObj, dedxMObj, tof, dttof, csctof, ev, MCTrPlots   );
+               if(    !PassPreselection( hscp, dedxHits, dedxSObj, dedxMObj, tof, dttof, csctof, ev, SamplePlots, isSignal?genColl[ClosestGen].p()/genColl[ClosestGen].energy():-1)) continue;
                if(TypeMode==5 && isSemiCosmicSB)continue;
 
                //fill the ABCD histograms and a few other control plots

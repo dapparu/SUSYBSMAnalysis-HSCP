@@ -4,6 +4,27 @@
 #include "Analysis_PlotFunction.h"
 #include "TVector3.h"
 #include <string>
+#include "SaturationCorrection.h" // New procedure for the correction of the saturation phenomena 
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// global use of the SaturationCorrection class 
+// Need to have the class in Analysis_CommonFunction.h & in Analysis_Step1_EventLoop.C 
+// Step1 uses the functions in CommonFunction.h
+// Need to load the correction parameters from a file
+//
+
+
+SaturationCorrection sc;
+
+void LoadCorrectionParameters()
+{
+    TFile* fileparameters = TFile::Open("CorrectionParameters.root");
+    TTree* treeparameters = (TTree*) fileparameters->Get("tree");
+    sc.SetTree(*treeparameters);
+    sc.ReadParameters();
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 // general purpose code 
@@ -15,13 +36,6 @@ std::string ReplacePartOfString (std::string s, std::string a, std::string b){
       if (pos==std::string::npos) break;
       toReturn.replace(pos++,a.size(),b);
    }
-   return toReturn;
-}
-
-std::string cleanSampleName (std::string s){
-   string toReturn = ReplacePartOfString (s, "_13TeV16G", "");
-   toReturn = ReplacePartOfString (toReturn, "_13TeV16", "");
-   toReturn = ReplacePartOfString (toReturn, "_13TeV", "");
    return toReturn;
 }
 
@@ -84,21 +98,6 @@ double GetMassFromBeta(double P, double beta){
 // compute mass out of a momentum and tof value
 double GetTOFMass(double P, double TOF){
    return GetMassFromBeta(P, 1/TOF);
-}
-
-double GetMassErr (double P, double PErr, double dEdx, double dEdxErr, double M){
-   if (M < 0) return -1;
-   double KErr     = 0.2;
-   double CErr     = 0.4;
-   double cErr     = 0.01;
-   double Criteria = dEdx - dEdxC_Data;
-   double Fac1     = P*P/(2*M*dEdxK_Data);
-   double Fac2     = pow(2*M*M*dEdxK_Data/(P*P), 2);
-   double MassErr  = Fac1*sqrt(Fac2*pow(PErr/P, 2) + Criteria*Criteria*pow(KErr/dEdxK_Data,2) + dEdxErr*dEdxErr + dEdxC_Data*dEdxC_Data);
-
-   if (std::isnan(MassErr) || std::isinf(MassErr)) MassErr = -1;
-
-   return MassErr/M;
 }
 
 // estimate beta from a dEdx value, if dEdx is below the allowed threshold returns a negative beta value
@@ -728,7 +727,7 @@ class dedxHIPEmulator{
 
 
 TH3F* loadDeDxTemplate(string path, bool splitByModuleType=false);
-reco::DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* templateHisto=NULL, bool usePixel=false, bool useClusterCleaning=true, bool reverseProb=false, bool useTruncated=false, std::unordered_map<unsigned int,double>* TrackerGains=NULL, bool useStrip=true, bool mustBeInside=false, size_t MaxStripNOM=999, bool correctFEDSat=false, int crossTalkInvAlgo=0, double dropLowerDeDxValue=0.0, dedxHIPEmulator* hipEmulator=NULL, double* dEdxErr = NULL);
+reco::DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* templateHisto=NULL, bool usePixel=false, bool useClusterCleaning=true, bool reverseProb=false, bool useTruncated=false, std::unordered_map<unsigned int,double>* TrackerGains=NULL, bool useStrip=true, bool mustBeInside=false, size_t MaxStripNOM=999, bool correctFEDSat=false, int crossTalkInvAlgo=0, double dropLowerDeDxValue=0.0, dedxHIPEmulator* hipEmulator=NULL);
 HitDeDxCollection getHitDeDx(const DeDxHitInfo* dedxHits, double* scaleFactors, std::unordered_map<unsigned int,double>* TrackerGains=NULL, bool correctFEDSat=false, int crossTalkInvAlgo=0);
 
 bool clusterCleaning(const SiStripCluster*   cluster,  int crosstalkInv=0, uint8_t* exitCode=NULL);
@@ -736,7 +735,7 @@ void printStripCluster(FILE* pFile, const SiStripCluster*   cluster, const DetId
 void printClusterCleaningMessage (uint8_t exitCode);
 std::vector<int> convert(const vector<unsigned char>& input);
 std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1=0.10, const float x2=0.04, bool way=true,float threshold=20,float thresholdSat=25);
-
+std::vector<int> Correction(const std::vector<int>& Q,const int label,const float rsat,float thresholdSat=25,float thresholdDeltaQ=40,float thresoldrsat=0.6);
 
 class dedxGainCorrector{
    private:
@@ -930,7 +929,7 @@ HitDeDxCollection getHitDeDx(const DeDxHitInfo* dedxHits, double* scaleFactors, 
 
 
 
-DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* templateHisto, bool usePixel, bool useClusterCleaning, bool reverseProb, bool useTruncated, std::unordered_map<unsigned int,double>* TrackerGains, bool useStrip, bool mustBeInside, size_t MaxStripNOM, bool correctFEDSat, int crossTalkInvAlgo, double dropLowerDeDxValue, dedxHIPEmulator* hipEmulator, double* dEdxErr){
+DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* templateHisto, bool usePixel, bool useClusterCleaning, bool reverseProb, bool useTruncated, std::unordered_map<unsigned int,double>* TrackerGains, bool useStrip, bool mustBeInside, size_t MaxStripNOM, bool correctFEDSat, int crossTalkInvAlgo, double dropLowerDeDxValue, dedxHIPEmulator* hipEmulator){
      if(!dedxHits) return DeDxData(-1, -1, -1);
 //     if(templateHisto)usePixel=false; //never use pixel for discriminator
 
@@ -942,8 +941,27 @@ DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* tem
      unsigned int SiStripNOM = 0;
      double lowerStripDeDx=1000;
      int lowerStripDeDxIndex=-1;
+     //loop in order to have the number of saturated clusters in the track
+     unsigned int NSatCluster=0;
+     for(unsigned int h=0;h<dedxHits->size();h++)
+     {
+         DetId detid(dedxHits->detId(h));
+         bool test_sat=false;
+         if(detid.subdetId()>=3)
+         {
+             const SiStripCluster* cluster = dedxHits->stripCluster(h);
+             vector<int> amplitudes = convert(cluster->amplitudes());
+             for(unsigned int i=0;i<amplitudes.size();i++)
+             {
+                 if(amplitudes.at(i)>253) test_sat=true;
+             }
+         }
+         if(test_sat) NSatCluster++;
+     }
+     float rsat = (float)NSatCluster/(float)dedxHits->size();
+
      for(unsigned int h=0;h<dedxHits->size();h++){
-        DetId detid(dedxHits->detId(h));  
+        SiStripDetId detid(dedxHits->detId(h));  
         if(!usePixel && detid.subdetId()<3)continue; // skip pixels
         if(!useStrip && detid.subdetId()>=3)continue; // skip strips        
         if(useClusterCleaning && !clusterCleaning(dedxHits->stripCluster(h), crossTalkInvAlgo))continue;
@@ -953,11 +971,23 @@ DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* tem
         if(detid.subdetId()>=3 && ++SiStripNOM > MaxStripNOM) continue; // skip remaining strips, but not pixel
 
         int ClusterCharge = dedxHits->charge(h);
+        int label_moduleGeometry = detid.moduleGeometry();
 
         if(detid.subdetId()>=3){//for strip only
            const SiStripCluster* cluster = dedxHits->stripCluster(h);
            vector<int> amplitudes = convert(cluster->amplitudes());
-           if (crossTalkInvAlgo) amplitudes = CrossTalkInv(amplitudes, 0.10, 0.04, true);
+           /////////////////////////////////////////////////////////////////////
+           //
+           // 0 : no correction & no cross talk inversion
+           // 1 : hscp correction & use of cross talk inversion
+           // 2 : proposal & NO use of cross talk inversion
+           // 3 : proposal & use of cross talk inversion (no re correction -- see bool=false
+           //
+           /////////////////////////////////////////////////////////////////////
+           if (crossTalkInvAlgo==1) amplitudes = CrossTalkInv(amplitudes, 0.10, 0.04, true);
+           if (crossTalkInvAlgo==2) amplitudes = Correction(amplitudes,label_moduleGeometry,rsat,25,40,0.6);
+           if (crossTalkInvAlgo==3) amplitudes = CrossTalkInv(Correction(amplitudes,label_moduleGeometry,rsat,25,40,0.6), 0.10, 0.04, false);
+
            int firstStrip = cluster->firstStrip();
            int prevAPV = -1;
            double gain = 1.0;
@@ -1006,7 +1036,7 @@ DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* tem
         }else{
            double Norm = (detid.subdetId()<3)?3.61e-06:3.61e-06*265;
            double ChargeOverPathlength = scaleFactor*Norm*ClusterCharge/dedxHits->pathlength(h);
-           if(hipEmulator)ChargeOverPathlength = hipEmulator->fakeHIP(detid.subdetId(), ChargeOverPathlength);
+           if(hipEmulator) ChargeOverPathlength = hipEmulator->fakeHIP(detid.subdetId(), ChargeOverPathlength);
 
            vect.push_back(ChargeOverPathlength); //save charge
            if(detid.subdetId()< 3)vectPixel.push_back(ChargeOverPathlength);
@@ -1057,13 +1087,10 @@ DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* tem
               //harmonic2 estimator           
               result=0;
               double expo = -2;
-	      if (dEdxErr) *dEdxErr = 0;
               for(int i = 0; i< size; i ++){
                  result+=pow(vect[i],expo);
-		 if (dEdxErr) *dEdxErr += pow(vect[i],2*(expo-1))*pow(0.01,2);
               }
               result = pow(result/size,1./expo);
-	      if (dEdxErr) *dEdxErr = result*result*result*sqrt(*dEdxErr)/size;
            }
 //           printf("Ih = %f\n------------------\n",result);
         }
@@ -1154,12 +1181,69 @@ return QII;
 }
 
 
-bool clusterCleaning(const SiStripCluster*   cluster,  int crosstalkInv, uint8_t * exitCode)
+std::vector<int> Correction(const std::vector<int>& Q,const int label,const float rsat,float thresholdSat,float thresholdDeltaQ,float thresholdrsat)
 {
-   if(!cluster) return true;
-   vector<int>  ampls = convert(cluster->amplitudes());
-   if(crosstalkInv==1)ampls = CrossTalkInv(ampls,0.10,0.04, true);
-      
+    const unsigned N=Q.size();
+    std::vector<int> Qcorr;
+    int total_charge=0;
+    int nsat=0;
+    float Qmin=0.;
+    float Qplus=0.;
+    bool testQmin=true;
+    for(unsigned int i=0;i<N;i++)
+    {
+        total_charge+=Q.at(i);
+        if(Q.at(i)>253) nsat++;
+        if(Q.at(i)>253 && testQmin)
+        {
+            testQmin=false;
+            Qmin=Q.at(i-1);
+        }
+        if(Q.at(i)>253)
+        {
+            Qplus=Q.at(i+1);
+        }
+        Qcorr.push_back(Q.at(i));
+    }
+    float DeltaQ=abs(Qmin-Qplus);
+    float charge_corr=sc.ChargeCorrected(total_charge,label,N,nsat);
+    float DeltaChargeCorr = charge_corr-total_charge;
+    if(rsat>=thresholdrsat && Qmin>=thresholdSat && Qplus>=thresholdSat && DeltaQ<=thresholdDeltaQ)
+    {
+        if(N==1)
+        {
+            vector<int>::iterator maxQ = max_element(Qcorr.begin(),Qcorr.end());
+            Qcorr.at(std::distance(Qcorr.begin(),maxQ))+=DeltaChargeCorr;
+        }
+        if(N==2 && label<5)
+        {
+            vector<int>::iterator maxQ = max_element(Qcorr.begin(),Qcorr.end());
+            if(Qcorr.at(std::distance(Qcorr.begin(),maxQ+1))<254) return Qcorr;
+            Qcorr.at(std::distance(Qcorr.begin(),maxQ))+=DeltaChargeCorr/2;
+            Qcorr.at(std::distance(Qcorr.begin(),maxQ+1))+=DeltaChargeCorr/2;
+        }
+    }
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// if a no saturated strip is between two saturated strips the method return the cluster without correction
+//
+// if more than one saturated strip the correction method is only used in the barrel (cut on label<5)
+//
+// the difference between the charge & the corrected charge is shared with the saturated strips
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    return Qcorr;
+}
+
+
+bool clusterCleaning(const SiStripCluster*   cluster,  int crosstalkInv, uint8_t * exitCode)
+{       
+    if(!cluster) return true;
+    vector<int> ampls = convert(cluster->amplitudes());
+    if (crosstalkInv==1) ampls = CrossTalkInv(ampls, 0.10, 0.04, true);
+    
+
 
   // ----------------  COMPTAGE DU NOMBRE DE MAXIMA   --------------------------
   //----------------------------------------------------------------------------
