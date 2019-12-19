@@ -9,18 +9,21 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // global use of the SaturationCorrection class 
-// Need to have the class in Analysis_CommonFunction.h & in Analysis_Step1_EventLoop_NewCorrection.C 
+// Need to have the class in Analysis_CommonFunction.h & in Analysis_Step1_EventLoop.C 
 // Step1 uses the functions in CommonFunction.h
 // Need to load the correction parameters from a file
 //
 
 
-TFile* fileparameters = TFile::Open("CorrectionParameters.root");
-TTree* treeparameters = (TTree*) fileparameters->Get("tree");
 SaturationCorrection sc;
-sc.SetTree(*treeparameters);
-sc.ReadParameters();
 
+void LoadCorrectionParameters()
+{
+    TFile* fileparameters = TFile::Open("CorrectionParameters.root");
+    TTree* treeparameters = (TTree*) fileparameters->Get("tree");
+    sc.SetTree(*treeparameters);
+    sc.ReadParameters();
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////// 
@@ -942,9 +945,10 @@ DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* tem
      unsigned int NSatCluster=0;
      for(unsigned int h=0;h<dedxHits->size();h++)
      {
+         DetId detid(dedxHits->detId(h));
+         bool test_sat=false;
          if(detid.subdetId()>=3)
          {
-             bool test_sat=false;
              const SiStripCluster* cluster = dedxHits->stripCluster(h);
              vector<int> amplitudes = convert(cluster->amplitudes());
              for(unsigned int i=0;i<amplitudes.size();i++)
@@ -974,13 +978,14 @@ DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* tem
            vector<int> amplitudes = convert(cluster->amplitudes());
            /////////////////////////////////////////////////////////////////////
            //
-           // 1 : current correction & use of cross talk inversion
+           // 0 : no correction & no cross talk inversion
+           // 1 : hscp correction & use of cross talk inversion
            // 2 : proposal & NO use of cross talk inversion
            // 3 : proposal & use of cross talk inversion (no re correction -- see bool=false
            //
            /////////////////////////////////////////////////////////////////////
-           if (crossTalkInvAlgo==1) amplitudes = Correction(amplitudes,label_moduleGeometry,rsat,25,40,0.6);
-           if (crossTalkInvAlgo==2) amplitudes = CrossTalkInv(amplitudes, 0.10, 0.04, true);
+           if (crossTalkInvAlgo==1) amplitudes = CrossTalkInv(amplitudes, 0.10, 0.04, true);
+           if (crossTalkInvAlgo==2) amplitudes = Correction(amplitudes,label_moduleGeometry,rsat,25,40,0.6);
            if (crossTalkInvAlgo==3) amplitudes = CrossTalkInv(Correction(amplitudes,label_moduleGeometry,rsat,25,40,0.6), 0.10, 0.04, false);
 
            int firstStrip = cluster->firstStrip();
@@ -1176,7 +1181,7 @@ return QII;
 }
 
 
-std::vector<int> Correction(const std::vector<int>& Q,const int label,const float rsat,float thresholdSat,float thresholdDeltaQ,float thresholdrsat);
+std::vector<int> Correction(const std::vector<int>& Q,const int label,const float rsat,float thresholdSat,float thresholdDeltaQ,float thresholdrsat)
 {
     const unsigned N=Q.size();
     std::vector<int> Qcorr;
@@ -1213,7 +1218,7 @@ std::vector<int> Correction(const std::vector<int>& Q,const int label,const floa
         if(N==2 && label<5)
         {
             vector<int>::iterator maxQ = max_element(Qcorr.begin(),Qcorr.end());
-            if(Qcorr.at(maxQ+1)<254) return Qcorr;
+            if(Qcorr.at(std::distance(Qcorr.begin(),maxQ+1))<254) return Qcorr;
             Qcorr.at(std::distance(Qcorr.begin(),maxQ))+=DeltaChargeCorr/2;
             Qcorr.at(std::distance(Qcorr.begin(),maxQ+1))+=DeltaChargeCorr/2;
         }

@@ -14,6 +14,6 @@ root -l -b << EOF
   gSystem->Load("libDataFormatsHepMCCandidate.so");
   gSystem->Load("libPhysicsToolsUtilities.so");
   gInterpreter->SetClassAutoparsing(false)
-  .x Analysis_Step1_EventLoop.C++("ANALYSE_0_to_0", 0);
+  .x Analysis_Step1_EventLoop.C++("ANALYSE_0_to_1", 0, "", 2);
 EOF
 

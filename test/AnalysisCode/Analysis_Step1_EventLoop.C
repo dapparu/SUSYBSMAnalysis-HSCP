@@ -57,7 +57,6 @@ using namespace reweight;
 #include "Analysis_Samples.h"
 #include "Analysis_TOFUtility.h"
 #include "tdrstyle.C"
-#include "Correction.h"
 
 
 
@@ -124,7 +123,7 @@ HIPTrackLossEmulator HIPTrackLossEmul;
 bool useClusterCleaning = true;
 /////////////////////////// CODE PARAMETERS /////////////////////////////
 
-void Analysis_Step1_EventLoop(string MODE="COMPILE", int TypeMode_=0, string InputSampleName="")
+void Analysis_Step1_EventLoop(string MODE="COMPILE", int TypeMode_=0, string InputSampleName="", int TypeCorrection_=1)
 {
    if(MODE=="COMPILE")return;
 
@@ -141,8 +140,14 @@ void Analysis_Step1_EventLoop(string MODE="COMPILE", int TypeMode_=0, string Inp
    gStyle->SetNdivisions(505);
    TH1::AddDirectory(kTRUE);
 
+
+   //load the parameters using in the new correction method
+   LoadCorrectionParameters();
+
+
    // redefine global variable dependent on the arguments given to the function
    TypeMode       = TypeMode_;
+   TypeCorrection = TypeCorrection_;
 
    //AnalysisType dependent cuts
    if(TypeMode<2){  
@@ -166,6 +171,7 @@ void Analysis_Step1_EventLoop(string MODE="COMPILE", int TypeMode_=0, string Inp
      GlobalMinNDOF      = 0; //tkOnly analysis --> comment these 2 lines to use only global muon tracks
      GlobalMinTOF       = 0;
    }
+
    
    // define the selection to be considered later for the optimization
    // WARNING: recall that this has a huge impact on the analysis time AND on the output file size --> be carefull with your choice
@@ -701,8 +707,7 @@ bool PassPreselection(const susybsm::HSCParticle& hscp, const DeDxHitInfo* dedxH
    if(st){if(GenBeta>=0)st->Beta_PreselectedC->Fill(GenBeta, Event_Weight);
           if(DZSB  && OASB)st->BS_Dxy_Cosmic->Fill(dxy, Event_Weight);
           if(DXYSB && OASB)st->BS_Dz_Cosmic->Fill(dz, Event_Weight);
-          if(DXYSB && DZSB)st->BS_OpenAngle   if(TypeMode==5 && fabs(dz)>GlobalMaxDZ) DZSB = true;
-_Cosmic->Fill(OpenAngle,Event_Weight);
+          if(DXYSB && DZSB)st->BS_OpenAngle_Cosmic->Fill(OpenAngle,Event_Weight);
 
 
           TVector3 outerHit = getOuterHitPos(dedxHits);
@@ -1045,10 +1050,8 @@ void Analysis_FillControlAndPredictionHist(const susybsm::HSCParticle& hscp, con
 // Looping on all events, tracks, selection and check how many events are entering the mass distribution
 void Analysis_Step1_EventLoop(char* SavePath)
 {
-
-   //Initialize the saturation correction method
-   Correction satCorr;
-   TFile* fileCorrectionParameters
+   //Load the parameters using in the new correction method
+   LoadCorrectionParameters();
 
    //Initialize a RandomNumberGenerator
    TRandom3* RNG = new TRandom3();
@@ -1374,10 +1377,10 @@ std::cout<<"G\n";
 
                //Compute dE/dx on the fly
                //computedEdx(dedxHits, Data/MC scaleFactor, templateHistoForDiscriminator, usePixel, useClusterCleaning, reverseProb)
-               DeDxData dedxSObjTmp  = computedEdx(dedxHits, dEdxSF, dEdxTemplates, true, useClusterCleaning, TypeMode==5, false, trackerCorrector.TrackerGains, true, true, 99, false, 1, 0.00, NULL);
-               DeDxData dedxMObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, 1, 0.15, (!isData)?&HIPemulator:NULL);
-               DeDxData dedxMUpObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, 1, 0.15, (!isData)?&HIPemulatorUp:NULL);
-               DeDxData dedxMDownObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, 1, 0.15, (!isData)?&HIPemulatorDown:NULL); //HERE - MAURO
+               DeDxData dedxSObjTmp  = computedEdx(dedxHits, dEdxSF, dEdxTemplates, true, useClusterCleaning, TypeMode==5, false, trackerCorrector.TrackerGains, true, true, 99, false, TypeCorrection, 0.00, NULL);
+               DeDxData dedxMObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, TypeCorrection, 0.15, (!isData)?&HIPemulator:NULL);
+               DeDxData dedxMUpObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, TypeCorrection, 0.15, (!isData)?&HIPemulatorUp:NULL);
+               DeDxData dedxMDownObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, TypeCorrection, 0.15, (!isData)?&HIPemulatorDown:NULL); //HERE - MAURO
                DeDxData* dedxSObj  = dedxSObjTmp.numberOfMeasurements()>0?&dedxSObjTmp:NULL;
                DeDxData* dedxMObj  = dedxMObjTmp.numberOfMeasurements()>0?&dedxMObjTmp:NULL;
                DeDxData* dedxMUpObj = dedxMUpObjTmp.numberOfMeasurements()>0?&dedxMUpObjTmp:NULL;
