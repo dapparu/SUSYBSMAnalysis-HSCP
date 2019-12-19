@@ -117,10 +117,10 @@ dedxHIPEmulator HIPemulatorDown (false, "ratePdfPixel_Down", "ratePdfStrip_Down"
 L1BugEmulator        L1Emul;
 HIPTrackLossEmulator HIPTrackLossEmul;
 
-bool useClusterCleaning = true;
+bool useClusterCleaning = false;
 /////////////////////////// CODE PARAMETERS /////////////////////////////
 
-void Analysis_Step1_EventLoop(string MODE="COMPILE", int TypeMode_=0, string InputSampleName="")
+void Analysis_Step1_EventLoop(string MODE="COMPILE", int TypeMode_=0, string InputSampleName="", int TypeCorrection_=1)
 {
    if(MODE=="COMPILE")return;
 
@@ -137,9 +137,12 @@ void Analysis_Step1_EventLoop(string MODE="COMPILE", int TypeMode_=0, string Inp
    gStyle->SetNdivisions(505);
    TH1::AddDirectory(kTRUE);
 
+   // load the parameters used in the new correction method
+   LoadCorrectionParameters();
+
    // redefine global variable dependent on the arguments given to the function
    TypeMode       = TypeMode_;
-
+   TypeCorrection = TypeCorrection_;
    //AnalysisType dependent cuts
    if(TypeMode<2){  
      GlobalMinNDOF      = 0; 
@@ -1050,6 +1053,10 @@ void Analysis_FillControlAndPredictionHist(const susybsm::HSCParticle& hscp, con
 // Looping on all events, tracks, selection and check how many events are entering the mass distribution
 void Analysis_Step1_EventLoop(char* SavePath)
 {
+
+   //load parameters
+   LoadCorrectionParameters();
+
    //Initialize a RandomNumberGenerator
    TRandom3* RNG = new TRandom3();
 
@@ -1421,10 +1428,10 @@ std::cout<<"G\n";
                //Compute dE/dx on the fly
                //computedEdx(dedxHits, Data/MC scaleFactor, templateHistoForDiscriminator, usePixel, useClusterCleaning, reverseProb)
 	       double dEdxErr = 0;
-               DeDxData dedxSObjTmp  = computedEdx(dedxHits, dEdxSF, dEdxTemplates, true, useClusterCleaning, TypeMode==5, false, trackerCorrector.TrackerGains, true, true, 99, false, 1, 0.00, NULL);
-               DeDxData dedxMObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, 1, 0.15, (!isData && !is2016G)?&HIPemulator:NULL, &dEdxErr);
-               DeDxData dedxMUpObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, 1, 0.15, (!isData && !is2016G)?&HIPemulatorUp:NULL);
-               DeDxData dedxMDownObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, 1, 0.15, (!isData && !is2016G)?&HIPemulatorDown:NULL);
+               DeDxData dedxSObjTmp  = computedEdx(dedxHits, dEdxSF, dEdxTemplates, true, useClusterCleaning, TypeMode==5, false, trackerCorrector.TrackerGains, true, true, 99, false, TypeCorrection, 0.00, NULL);
+               DeDxData dedxMObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, TypeCorrection, 0.15, (!isData && !is2016G)?&HIPemulator:NULL, &dEdxErr);
+               DeDxData dedxMUpObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, TypeCorrection, 0.15, (!isData && !is2016G)?&HIPemulatorUp:NULL);
+               DeDxData dedxMDownObjTmp = computedEdx(dedxHits, dEdxSF, NULL,          true, useClusterCleaning, false      , false, trackerCorrector.TrackerGains, true, true, 99, false, TypeCorrection, 0.15, (!isData && !is2016G)?&HIPemulatorDown:NULL);
                DeDxData* dedxSObj  = dedxSObjTmp.numberOfMeasurements()>0?&dedxSObjTmp:NULL;
                DeDxData* dedxMObj  = dedxMObjTmp.numberOfMeasurements()>0?&dedxMObjTmp:NULL;
                DeDxData* dedxMUpObj = dedxMUpObjTmp.numberOfMeasurements()>0?&dedxMUpObjTmp:NULL;

@@ -72,6 +72,8 @@ string IntegratedLuminosityFromE(double SQRTS_){
   return LumiText;
 }
 
+// Type of the correction 
+int     TypeCorrection = 1;
 // Type of the analysis
 int		   TypeMode         = 0; //0 = Tracker-Only analysis (used in 2010 and 2011 papers)
 					 //1 = Tracker+Muon analysis (used in 2010 paper)
