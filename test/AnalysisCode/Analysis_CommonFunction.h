@@ -1260,7 +1260,6 @@ std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1, const 
 return QII;
 }
 
-
 bool clusterCleaning(const SiStripCluster*   cluster,  int crosstalkInv, uint8_t * exitCode)
 {
    if(!cluster) return true;
