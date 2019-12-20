@@ -22,7 +22,7 @@ SaturationCorrection sc;
 void LoadCorrectionParameters()
 {
     char PathToParameters[2048];
-    sprintf(PathToParameters,"%s/src/SUSYBSMAnalysis/HSCP/test/AnalysisCode/CorrectionParameters.root", getenv("CMSSW_BASE"));
+    sprintf(PathToParameters,"%s/src/SUSYBSMAnalysis/HSCP/data/CorrectionParameters.root", getenv("CMSSW_BASE"));
     TFile* fileparameters = TFile::Open(PathToParameters);
     TTree* treeparameters = (TTree*) fileparameters->Get("tree");
     sc.SetTree(*treeparameters);
@@ -975,7 +975,7 @@ DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* tem
          const SiStripCluster* cluster = dedxHits->stripCluster(h);
          vector<int> amplitudes = convert(cluster->amplitudes());
          for(unsigned int i=0;i<amplitudes.size();i++){
-             if(amplitudes.at(i)>253) test_sat=true;
+             if(amplitudes[i]>253) test_sat=true;
          }
          if(test_sat) NSatCluster++;
      }
@@ -1158,6 +1158,7 @@ std::vector<int> convert(const vector<unsigned char>& input)
 
 std::vector<int> Correction(const std::vector<int>& Q,const int label,const float rsat,float thresholdSat,float thresholdDeltaQ,float thresholdrsat) {
         const unsigned N=Q.size();
+        if(N<3) return Q;
         std::vector<int> Qcorr;
         int total_charge=0;
         int nsat=0;
@@ -1165,18 +1166,18 @@ std::vector<int> Correction(const std::vector<int>& Q,const int label,const floa
         float Qplus=0.;
         bool testQmin=true;
         for(unsigned int i=0;i<N;i++){
-            total_charge+=Q.at(i);
-            if(Q.at(i)>253) nsat++;
-            if(Q.at(i)>253 && testQmin)
+            total_charge+=Q[i];
+            if(Q[i]>253) nsat++;
+            if(Q[i]>253 && testQmin && i>1)
             {
                 testQmin=false;
-                Qmin=Q.at(i-1);
+                Qmin=Q[i-1];
             }
-            if(Q.at(i)>253)
+            if(Q[i]>253)
             {
-                Qplus=Q.at(i+1);
+                Qplus=Q[i+1];
             }
-            Qcorr.push_back(Q.at(i));
+            Qcorr.push_back(Q[i]);
         }
         float DeltaQ=abs(Qmin-Qplus);
         float charge_corr=sc.ChargeCorrected(total_charge,label,N,nsat);
@@ -1186,14 +1187,14 @@ std::vector<int> Correction(const std::vector<int>& Q,const int label,const floa
             if(N==1)
             {
                 vector<int>::iterator maxQ = max_element(Qcorr.begin(),Qcorr.end());
-                Qcorr.at(std::distance(Qcorr.begin(),maxQ))+=DeltaChargeCorr;
+                Qcorr[std::distance(Qcorr.begin(),maxQ)]+=DeltaChargeCorr;
             }
             if(N==2 && label<5)
             {
                 vector<int>::iterator maxQ = max_element(Qcorr.begin(),Qcorr.end());
-                if(Qcorr.at(std::distance(Qcorr.begin(),maxQ+1))<254) return Qcorr;
-                Qcorr.at(std::distance(Qcorr.begin(),maxQ))+=DeltaChargeCorr/2;
-                Qcorr.at(std::distance(Qcorr.begin(),maxQ+1))+=DeltaChargeCorr/2;
+                if(Qcorr[std::distance(Qcorr.begin(),maxQ+1)]<254) return Qcorr;
+                Qcorr[std::distance(Qcorr.begin(),maxQ)]+=DeltaChargeCorr/2;
+                Qcorr[std::distance(Qcorr.begin(),maxQ+1)]+=DeltaChargeCorr/2;
             }
         }
         ////////////////////////////////////////////////////////////////////////////////////////////////////

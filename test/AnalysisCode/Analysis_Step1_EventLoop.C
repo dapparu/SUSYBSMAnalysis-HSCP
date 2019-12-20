@@ -1053,10 +1053,6 @@ void Analysis_FillControlAndPredictionHist(const susybsm::HSCParticle& hscp, con
 // Looping on all events, tracks, selection and check how many events are entering the mass distribution
 void Analysis_Step1_EventLoop(char* SavePath)
 {
-
-   //load parameters
-   LoadCorrectionParameters();
-
    //Initialize a RandomNumberGenerator
    TRandom3* RNG = new TRandom3();
 
@@ -1202,7 +1198,8 @@ std::cout<<"G\n";
          printf("Building Mass for %10s (%1i/%1i) :",samples[s].Name.c_str(),period+1,(samples[s].Type>=2?RunningPeriods:1));
          int TreeStep = ev.size()/50;if(TreeStep==0)TreeStep=1;
 
-         for(Long64_t ientry=0;ientry<ev.size();ientry++){
+         for(Long64_t ientry=0;ientry<10000;ientry++){
+         //for(Long64_t ientry=0;ientry<ev.size();ientry++){
             ev.to(ientry);
             if(MaxEntry>0 && ientry>MaxEntry)break;
             if(ientry%TreeStep==0){printf(".");fflush(stdout);}
