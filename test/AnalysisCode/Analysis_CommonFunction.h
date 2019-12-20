@@ -21,7 +21,9 @@ SaturationCorrection sc;
 
 void LoadCorrectionParameters()
 {
-    TFile* fileparameters = TFile::Open("CorrectionParameters.root");
+    char PathToParameters[2048];
+    sprintf(PathToParameters,"%s/src/SUSYBSMAnalysis/HSCP/test/AnalysisCode/CorrectionParameters.root", getenv("CMSSW_BASE"));
+    TFile* fileparameters = TFile::Open(PathToParameters);
     TTree* treeparameters = (TTree*) fileparameters->Get("tree");
     sc.SetTree(*treeparameters);
     sc.ReadParameters();
@@ -1156,9 +1158,7 @@ std::vector<int> convert(const vector<unsigned char>& input)
 
 std::vector<int> Correction(const std::vector<int>& Q,const int label,const float rsat,float thresholdSat,float thresholdDeltaQ,float thresholdrsat) {
         const unsigned N=Q.size();
-        vector<int>  ampls = convert(cluster->amplitudes());
         std::vector<int> Qcorr;
-        if(crosstalkInv==1)ampls = CrossTalkInv(ampls,0.10,0.04, true);
         int total_charge=0;
         int nsat=0;
         float Qmin=0.;

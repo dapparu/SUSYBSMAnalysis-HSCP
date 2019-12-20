@@ -239,6 +239,7 @@ void InitBaseDirectory(){
       printf("In the mean time, the directory containing the HSCP EDM file is assumed to be %s\n",BaseDirectory.c_str());
    }
 
+
    // BaseDirectory is defined a function of the username
 //   if(analyst.find("querten")!=std::string::npos && host.find("ucl.ac.be")!=std::string::npos){
 //      BaseDirectory = "/storage/data/cms/users/quertenmont/HSCP/CMSSW_4_2_3/11_11_01/";

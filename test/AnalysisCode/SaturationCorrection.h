@@ -42,6 +42,8 @@ string LabelModul(int modulgeom)
 	if(modulgeom==12) return "W5";
 	if(modulgeom==13) return "W6";
 	if(modulgeom==14) return "W7";
+    else return "UNKNOWN";
+    return "";
 }
 
 class SaturationCorrection

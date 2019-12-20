@@ -21,6 +21,7 @@ RemoteStorageDir          = '//eos/cms/store/group/phys_exotica/hscp/'
 
 #the vector below contains the "TypeMode" of the analyses that should be run
 AnalysesToRun = [0,2]#,4]#,3,5]
+CorrectionTypeToRun = [1,2]
 
 CMSSW_74X_VERSION = '7_4_16'
 base80X = os.environ['CMSSW_BASE']
@@ -82,18 +83,19 @@ if sys.argv[1]=='1':
            vals=line.split(',')
            if((vals[0].replace('"','')) in CMSSW_VERSION):
               for Type in AnalysesToRun:
-                 #LaunchOnCondor.Jobs_FinalCmds = ['mv *.root %s/src/SUSYBSMAnalysis/HSCP/test/AnalysisCode/Results/Type%i/' % (os.environ['CMSSW_BASE'], Type)]
-                 LaunchOnCondor.Jobs_FinalCmds = ['cp -r Results %s/src/SUSYBSMAnalysis/HSCP/test/%s/ && rm -rf Results' % (os.environ['CMSSW_BASE'], os.path.basename(os.getcwd()) if os.getcwd().find('AnalysisCode') > 0 else 'AnalysisCode')]
-                 if(UseRemoteSamples):
+                  for TypeCorr in CorrectionTypeToRun: 
+                      LaunchOnCondor.Jobs_FinalCmds = ['mv *.root %s/src/SUSYBSMAnalysis/HSCP/test/AnalysisCode/Results/Type%i/TypeCorr%i' % (os.environ['CMSSW_BASE'], Type,TypeCorr)]
+                 #LaunchOnCondor.Jobs_FinalCmds = ['cp -r Results %s/src/SUSYBSMAnalysis/HSCP/test/%s/ && rm -rf Results' % (os.environ['CMSSW_BASE'], os.path.basename(os.getcwd()) if os.getcwd().find('AnalysisCode') > 0 else 'AnalysisCode')]
+                      if(UseRemoteSamples):
                     #LaunchOnCondor.Jobs_InitCmds = ['ulimit -c 0', 'export X509_USER_PROXY=$1', 'export XRD_NETWORKSTACK=IPv4', 'export REMOTESTORAGESERVER='+RemoteServer, 'export REMOTESTORAGEPATH='+RemoteStorageDir.replace('/storage/data/cms/store/', '//store/')]
-                    LaunchOnCondor.Jobs_InitCmds = ['ulimit -c 0', 'export X509_USER_PROXY=$1', 'export XRD_NETWORKSTACK=IPv4', 'export REMOTESTORAGESERVER='+RemoteServer, 'export REMOTESTORAGEPATH='+RemoteStorageDir]
-                 else: LaunchOnCondor.Jobs_InitCmds = ['ulimit -c 0']
-                 if(int(vals[1])>=2 and skipSamples(Type, vals[2])==True):continue
-                 if vals[2].find("13TeV16") < 0: continue # skip everything that is not 2016 -- namely the 2015 samples
-#                 if(int(vals[1])!=1):continue #Skip everything except for background MC
-                 LaunchOnCondor.SendCluster_Push(["FWLITE", os.getcwd()+"/Analysis_Step1_EventLoop.C", '"ANALYSE_'+str(index)+'_to_'+str(index)+'"'  , Type, vals[2].rstrip() ])
+                        LaunchOnCondor.Jobs_InitCmds = ['ulimit -c 0', 'export X509_USER_PROXY=$1', 'export XRD_NETWORKSTACK=IPv4', 'export REMOTESTORAGESERVER='+RemoteServer, 'export REMOTESTORAGEPATH='+RemoteStorageDir]
+                      else: LaunchOnCondor.Jobs_InitCmds = ['ulimit -c 0']
+                      if(int(vals[1])>=2 and skipSamples(Type, vals[2])==True):continue
+                      if vals[2].find("13TeV16") < 0: continue # skip everything that is not 2016 -- namely the 2015 samples
+#                     if(int(vals[1])!=1):continue #Skip everything except for background MC
+                      LaunchOnCondor.SendCluster_Push(["FWLITE", os.getcwd()+"/Analysis_Step1_EventLoop.C", '"ANALYSE_'+str(index)+'_to_'+str(index)+'"'  , Type, vals[2].rstrip(), TypeCorr ])
         f.close()
-        LaunchOnCondor.SendCluster_Submit()
+              #LaunchOnCondor.SendCluster_Submit()
 
 elif sys.argv[1]=='2':
         print 'MERGING FILE AND PREDICTING BACKGROUNDS'  

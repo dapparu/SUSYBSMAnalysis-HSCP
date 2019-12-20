@@ -221,7 +221,7 @@ void Analysis_Step1_EventLoop(string MODE="COMPILE", int TypeMode_=0, string Inp
 
    //make the directory structure corresponding to this analysis (depends on dEdx/TOF estimator being used, Eta/Pt cuts and Mode of the analysis)
    char Buffer[2048], Command[2048];
-   sprintf(Buffer,"Results/Type%i/", TypeMode);
+   sprintf(Buffer,"Results/Type%i/TypeCorr%i", TypeMode, TypeCorrection);
    sprintf(Command,"mkdir -p %s",Buffer); system(Command);
 
    // get all the samples and clean the list to keep only the one we want to run on... Also initialize the BaseDirectory
