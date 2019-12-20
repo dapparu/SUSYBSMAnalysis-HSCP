@@ -95,7 +95,7 @@ if sys.argv[1]=='1':
 #                     if(int(vals[1])!=1):continue #Skip everything except for background MC
                       LaunchOnCondor.SendCluster_Push(["FWLITE", os.getcwd()+"/Analysis_Step1_EventLoop.C", '"ANALYSE_'+str(index)+'_to_'+str(index)+'"'  , Type, vals[2].rstrip(), TypeCorr ])
         f.close()
-              #LaunchOnCondor.SendCluster_Submit()
+        LaunchOnCondor.SendCluster_Submit()
 
 elif sys.argv[1]=='2':
         print 'MERGING FILE AND PREDICTING BACKGROUNDS'  
