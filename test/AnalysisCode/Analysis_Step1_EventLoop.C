@@ -606,7 +606,7 @@ bool PassPreselection(const susybsm::HSCParticle& hscp, const DeDxHitInfo* dedxH
 
    if(st){st->BS_Pterr ->Fill(track->ptError()/track->pt(),Event_Weight);}
    if(TypeMode!=3 && (track->ptError()/track->pt())>GlobalMaxPterr)return false;
-   if(MassErr > 0 && MassErr > 2.2)return false; //FIXME jozze -- cut on relative mass error in units of 8*MassErr/Mass
+   //if(MassErr > 0 && MassErr > 2.2)return false; //FIXME jozze -- cut on relative mass error in units of 8*MassErr/Mass
 
    if(std::max(0.0,track->pt())<GlobalMinPt)return false;
    if(st){st->Pterr   ->Fill(0.0,Event_Weight);}
@@ -1198,8 +1198,7 @@ std::cout<<"G\n";
          printf("Building Mass for %10s (%1i/%1i) :",samples[s].Name.c_str(),period+1,(samples[s].Type>=2?RunningPeriods:1));
          int TreeStep = ev.size()/50;if(TreeStep==0)TreeStep=1;
 
-         for(Long64_t ientry=0;ientry<10000;ientry++){
-         //for(Long64_t ientry=0;ientry<ev.size();ientry++){
+         for(Long64_t ientry=0;ientry<ev.size();ientry++){
             ev.to(ientry);
             if(MaxEntry>0 && ientry>MaxEntry)break;
             if(ientry%TreeStep==0){printf(".");fflush(stdout);}
@@ -1657,6 +1656,8 @@ std::cout<<"G\n";
                if(tof)MassDownComb=GetMassFromBeta(track->p(),(1/tof->inverseBeta()));
 
                bool PassNonTrivialSelection=false;
+               bool PassCutOnP=false;
+               if(track->p()<=3)PassCutOnP=true;
 
                //loop on all possible selection (one of them, the optimal one, will be used later)
                for(unsigned int CutIndex=0;CutIndex<CutPt.size();CutIndex++){
@@ -1696,6 +1697,10 @@ std::cout<<"G\n";
  
 
                } //end of Cut loop
+               PassCutOnP=true;
+                if(PassCutOnP) {
+                    stPlots_FillTreeUsefulInfo(SamplePlots, dedxMObj->dEdx(), track->p());
+                }
                if(PassNonTrivialSelection) stPlots_FillTree(SamplePlots, ev.eventAuxiliary().run(),ev.eventAuxiliary().event(), c, track->pt(), dedxSObj ? dedxSObj->dEdx() : -1, tof ? tof->inverseBeta() : -1, Mass, TreeDZ, TreeDXY, OpenAngle, track->eta(), track->phi(), -1);
             }// end of Track Loop
 

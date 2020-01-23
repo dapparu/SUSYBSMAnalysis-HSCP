@@ -9,6 +9,7 @@ struct stPlots {
    std::string  Name;
    TDirectory*  Directory;
    TTree*       Tree;
+   TTree*       TreeUsefulInfo;
    unsigned int NCuts;
    unsigned int Tree_Run;
    unsigned int Tree_Event;
@@ -23,6 +24,8 @@ struct stPlots {
    float        Tree_eta;
    float        Tree_phi;
 
+   float        TreeUsefulInfo_dEdx;
+   float        TreeUsefulInfo_P;
 
 
    TH2F*  Mass;
@@ -726,6 +729,11 @@ void stPlots_Init(TFile* HistoFile, stPlots& st, std::string BaseName, unsigned 
    st.Tree->Branch("eta"     ,&st.Tree_eta       ,"eta/F");
    st.Tree->Branch("phi"     ,&st.Tree_phi       ,"phi/F");
 
+   st.TreeUsefulInfo = new TTree("UsefulInformations", "UsefulInformations");
+   st.TreeUsefulInfo->SetDirectory(0);
+   st.TreeUsefulInfo->Branch("dEdx"   ,&st.TreeUsefulInfo_dEdx       ,"dEdx/F");
+   st.TreeUsefulInfo->Branch("P"      ,&st.TreeUsefulInfo_P          ,"P/F");
+
 
    HistoFile->cd();
 }
@@ -969,10 +977,19 @@ void stPlots_Clear(stPlots* st, bool WriteFirst=false)
 {
    if(WriteFirst){
       st->Tree->SetDirectory(st->Directory);
+      st->TreeUsefulInfo->SetDirectory(st->Directory);
       st->Directory->Write();
    }
    delete st->Directory;
 }
+
+// add dEdx & p in order to compute the factors K & C
+void stPlots_FillTreeUsefulInfo(stPlots* st, double dEdx, double P){
+    st->TreeUsefulInfo_dEdx     = dEdx;
+    st->TreeUsefulInfo_P        = P;
+    st->TreeUsefulInfo->Fill();
+}
+
 
 // add one candidate to the bookeeping tree --> the event must be saved in the tree if you want to find it back with the DumpInfo.C code later on
 void stPlots_FillTree(stPlots* st, unsigned int Run, unsigned int Event, unsigned int Hscp, double Pt, double I, double TOF, double Mass, double dZ, double dXY, double dR, double eta, double phi, int MaxEntry=20000){

@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import os
+import time
 
 indir = "Results/"
 jobfilesdir = "FARM/inputs/" 
@@ -58,6 +59,6 @@ for i, executable in enumerate(todo):
    newcmd.write(toWrite+'\n')
 newcmd.close()
 
-#initProxy()
-#os.system('sh newcmd.cmd')
+initProxy()
+os.system('sh newcmd.cmd')
 

@@ -54,9 +54,11 @@ LOCALTIER   = 'T2_CH_CERN'
 #DATASETMASK = '/StreamExpress/Run2015B-SiStripCalMinBias-Express-v1/ALCARECO'
 #DATASETMASK = '/ZeroBias/Run2015B-PromptReco-v1/RECO'
 ####DATASETMASK = ['/ZeroBias/Run2016F-SiStripCalMinBias-18Apr2017-v1/ALCARECO', '/ZeroBias/Run2016G-SiStripCalMinBias-18Apr2017-v1/ALCARECO']
-DATASETMASK = ['/ZeroBias/Run2016F-SiStripCalMinBias-18Apr2017-v1/ALCARECO']
+DATASETMASK = ['/ZeroBias/Run2016G-SiStripCalMinBias-18Apr2017-v1/ALCARECO']
 #DATASETMASK = ['/ZeroBias/Run2016C-SiStripCalMinBias-18Apr2017-v1/ALCARECO', '/ZeroBias/Run2016D-SiStripCalMinBias-18Apr2017-v1/ALCARECO','/ZeroBias/Run2016E-SiStripCalMinBias-18Apr2017-v1/ALCARECO']
-EndPath     = "/storage/data/cms/store/user/jpriscia/dEdxCalib"
+#DATASETMASK = ['/DYtoTauTau_M-30_PbP-EmbEPOS_8p16_PowhegNoEWTauola/pPb816Summer16DR-PbPEmb_80X_mcRun2_pA_v4-v1/AODSIM']
+#EndPath     = "/storage/data/cms/store/user/jpriscia/dEdxCalib"
+EndPath     = "/eos/user/d/dapparu/thesis/hscp/DeDxCalib"
 ISLOCAL     = False
 TransferDirectlyToStorage = False
 LoadJson(JSON)
@@ -117,7 +119,8 @@ LaunchOnCondor.subTool = 'condor'
 
 
 if not TransferDirectlyToStorage:
-   os.system("mkdir -p /eos/user/j/jpriscia/out");
+   #os.system("mkdir -p /eos/user/j/jpriscia/out");
+    os.system("mkdir -p /eos/user/d/dapparu/thesis/hscp/DeDxCalib");
 else:
    os.system('mkdir -p %s/{275777,275920,276525,276585,276870}' % EndPath)
 for DATASET in datasetList :
@@ -148,7 +151,9 @@ for DATASET in datasetList :
          f.write("\n")
       f.close()   
       if not TransferDirectlyToStorage:
-         LaunchOnCondor.Jobs_FinalCmds = ["cp dEdxSkim.root " + "/eos/user/j/jpriscia/out/dEdxSkim_%s_%i.root && rm dEdxSkim.root" % (inFile[0], LaunchOnCondor.Jobs_Count)]
+        # LaunchOnCondor.Jobs_FinalCmds = ["cp dEdxSkim.root " + "/eos/user/j/jpriscia/out/dEdxSkim_%s_%i.root && rm dEdxSkim.root" % (inFile[0], LaunchOnCondor.Jobs_Count)]
+        LaunchOnCondor.Jobs_FinalCmds = ["cp dEdxSkim.root " + "/eos/user/d/dapparu/thesis/hscp/DeDxCalib/dEdxSkim_%s_%i.root && rm dEdxSkim.root" % (inFile[0], LaunchOnCondor.Jobs_Count)]
+
       else:
          LaunchOnCondor.Jobs_FinalCmds = ["lcg-cp -v -n 10 -D srmv2 -b file://${PWD}/dEdxSkim.root srm://ingrid-se02.cism.ucl.ac.be:8444/srm/managerv2\?SFN=%s/%s/dEdxSkim_%s_%i.root && rm -f dEdxSkim.root" % (EndPath, inFile[0], inFile[0], LaunchOnCondor.Jobs_Count)] # if you do not use zsh, change '\?' to '?'
       LaunchOnCondor.SendCluster_Push  (["CMSSW", "dEdxSkimmer_cfg.py" ])

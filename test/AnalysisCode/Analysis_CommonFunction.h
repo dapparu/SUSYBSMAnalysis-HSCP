@@ -29,6 +29,8 @@ void LoadCorrectionParameters()
     sc.ReadParameters();
 }
 
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 // general purpose code 
 std::string ReplacePartOfString (std::string s, std::string a, std::string b){
@@ -759,7 +761,7 @@ bool clusterCleaning(const SiStripCluster*   cluster,  int crosstalkInv=0, uint8
 void printStripCluster(FILE* pFile, const SiStripCluster*   cluster, const DetId& DetId, bool crossTalkInvAlgo);
 void printClusterCleaningMessage (uint8_t exitCode);
 std::vector<int> convert(const vector<unsigned char>& input);
-std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1=0.10, const float x2=0.04, bool way=true,float threshold=20,float thresholdSat=25);
+std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1=0.10, const float x2=0.04, bool way=true,float threshold=20,float thresholdSat=25,bool inversion=true);
 std::vector<int> Correction(const std::vector<int>& Q,const int label,const float rsat,float thresholdSat=25,float thresholdDeltaQ=40,float thresoldrsat=0.6);
 
 class dedxGainCorrector{
@@ -957,7 +959,6 @@ HitDeDxCollection getHitDeDx(const DeDxHitInfo* dedxHits, double* scaleFactors, 
 DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* templateHisto, bool usePixel, bool useClusterCleaning, bool reverseProb, bool useTruncated, std::unordered_map<unsigned int,double>* TrackerGains, bool useStrip, bool mustBeInside, size_t MaxStripNOM, bool correctFEDSat, int crossTalkInvAlgo, double dropLowerDeDxValue, dedxHIPEmulator* hipEmulator, double* dEdxErr){
      if(!dedxHits) return DeDxData(-1, -1, -1);
 //     if(templateHisto)usePixel=false; //never use pixel for discriminator
-
      std::vector<double> vect;
      std::vector<double> vectStrip;
      std::vector<double> vectPixel;
@@ -980,7 +981,6 @@ DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* tem
          if(test_sat) NSatCluster++;
      }
      float rsat = (float)NSatCluster/(float)dedxHits->size();
-
      for(unsigned int h=0;h<dedxHits->size();h++){
         SiStripDetId detid(dedxHits->detId(h));  
         if(!usePixel && detid.subdetId()<3)continue; // skip pixels
@@ -1001,15 +1001,21 @@ DeDxData computedEdx(const DeDxHitInfo* dedxHits, double* scaleFactors, TH3* tem
            ///////////////////////////////////////////////////////////////////////////////////////////
            //
            // 0 : no correction & no cross talk inversion
-           // 1 : hscp correction & use og cross talk inversion
-           // 2 : proposal & no use of cross talk inversion
-           // 3 : proposal & use of cross talk inversion (no recorrection -- see bool=false)
-           //
+           // 1 : no correction & cross talk inversion
+           // 2 : hscp correction & no use of cross talk inversion
+           // 3 : hscp correction & use of cross talk inversion
+           // 4 : proposal & no use of cross talk inversion
+           // 5 : proposal & use of cross talk inversion (no recorrection -- see bool=false)
+           // 
            ///////////////////////////////////////////////////////////////////////////////////////////
+
            
-           if (crossTalkInvAlgo==1) amplitudes = CrossTalkInv(amplitudes, 0.10, 0.04, true);
-           if (crossTalkInvAlgo==2) amplitudes = Correction(amplitudes, label_moduleGeometry, rsat, 25, 40, 0.6);
-           if (crossTalkInvAlgo==3) amplitudes = CrossTalkInv(Correction(amplitudes, label_moduleGeometry, rsat, 25, 40, 0.6), 0.10, 0.04, false);
+           if (crossTalkInvAlgo==0) amplitudes = CrossTalkInv(amplitudes, 0.10, 0.04, false, 20, 25, false);
+           if (crossTalkInvAlgo==1) amplitudes = CrossTalkInv(amplitudes, 0.10, 0.04, false, 20, 25, true);
+           if (crossTalkInvAlgo==2) amplitudes = CrossTalkInv(amplitudes, 0.10, 0.04, true, 20, 25, false);
+           if (crossTalkInvAlgo==3) amplitudes = CrossTalkInv(amplitudes, 0.10, 0.04, true, 20, 25, true);
+           if (crossTalkInvAlgo==4) amplitudes = CrossTalkInv(Correction(amplitudes, label_moduleGeometry, rsat, 25, 40, 0.6), 0.10, 0.04, false, 20, 25, false);
+           if (crossTalkInvAlgo==5) amplitudes = CrossTalkInv(Correction(amplitudes, label_moduleGeometry, rsat, 25, 40, 0.6), 0.10, 0.04, false, 20, 25, true);
 
            int firstStrip = cluster->firstStrip();
            int prevAPV = -1;
@@ -1165,6 +1171,7 @@ std::vector<int> Correction(const std::vector<int>& Q,const int label,const floa
         float Qmin=0.;
         float Qplus=0.;
         bool testQmin=true;
+        //--- number of saturated strips & charge of the first neighbour strips
         for(unsigned int i=0;i<N;i++){
             total_charge+=Q[i];
             if(Q[i]>253) nsat++;
@@ -1184,12 +1191,12 @@ std::vector<int> Correction(const std::vector<int>& Q,const int label,const floa
         float DeltaChargeCorr = charge_corr-total_charge;
         if(rsat>=thresholdrsat && Qmin>=thresholdSat && Qplus>=thresholdSat && DeltaQ<=thresholdDeltaQ)
         {
-            if(N==1)
+            if(nsat==1)
             {
                 vector<int>::iterator maxQ = max_element(Qcorr.begin(),Qcorr.end());
                 Qcorr[std::distance(Qcorr.begin(),maxQ)]+=DeltaChargeCorr;
             }
-            if(N==2 && label<5)
+            if(nsat==2 && label<5)
             {
                 vector<int>::iterator maxQ = max_element(Qcorr.begin(),Qcorr.end());
                 if(Qcorr[std::distance(Qcorr.begin(),maxQ+1)]<254) return Qcorr;
@@ -1206,13 +1213,12 @@ std::vector<int> Correction(const std::vector<int>& Q,const int label,const floa
         //// the difference between the charge & the corrected charge is shared with the saturated strips
         ////
         //////////////////////////////////////////////////////////////////////////////////////////////////////
-        
-        
+
         return Qcorr;
 }
 
 
-std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1, const float x2, bool way,float threshold,float thresholdSat) {
+std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1, const float x2, bool way,float threshold,float thresholdSat,bool inversion) {
   const unsigned N=Q.size();
   std::vector<int> QII;
   std::vector<float> QI(N,0);
@@ -1236,7 +1242,7 @@ std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1, const 
 	  }
   }
 //---
-
+if(inversion){
   for(unsigned int i=0; i<N; i++) {
         A(i,i) =a;
         if(i<N-1){ A(i+1,i)=x1;A(i,i+1)=x1;}
@@ -1259,6 +1265,8 @@ std::vector<int> CrossTalkInv(const std::vector<int>&  Q, const float x1, const 
   }
 
 return QII;
+}
+else return Q;
 }
 
 
