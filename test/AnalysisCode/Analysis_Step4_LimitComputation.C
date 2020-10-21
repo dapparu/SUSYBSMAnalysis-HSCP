@@ -51,13 +51,13 @@ class stAllInfo{
       fscanf(pFile,"Eff_SystPU   : %lf +- %lf\n",&Eff_SYSTPU, &EffE_SYSTPU);
       fscanf(pFile,"TotalUnc     : %lf\n",&TotalUnc);
       fscanf(pFile,"Signif       : %lf\n",&Significance);
-      fscanf(pFile,"XSec_Th      : %lf\n",&XSec_Th);
-      fscanf(pFile,"XSec_Exp     : %lf\n",&XSec_Exp);
-      fscanf(pFile,"XSec_ExpUp   : %lf\n",&XSec_ExpUp);
-      fscanf(pFile,"XSec_ExpDown : %lf\n",&XSec_ExpDown);
-      fscanf(pFile,"XSec_Exp2Up  : %lf\n",&XSec_Exp2Up);
-      fscanf(pFile,"XSec_Exp2Down: %lf\n",&XSec_Exp2Down);
-      fscanf(pFile,"XSec_Obs     : %lf\n",&XSec_Obs);
+      fscanf(pFile,"XSec_Th      : %lE\n",&XSec_Th);
+      fscanf(pFile,"XSec_Exp     : %lE\n",&XSec_Exp);
+      fscanf(pFile,"XSec_ExpUp   : %lE\n",&XSec_ExpUp);
+      fscanf(pFile,"XSec_ExpDown : %lE\n",&XSec_ExpDown);
+      fscanf(pFile,"XSec_Exp2Up  : %lE\n",&XSec_Exp2Up);
+      fscanf(pFile,"XSec_Exp2Down: %lE\n",&XSec_Exp2Down);
+      fscanf(pFile,"XSec_Obs     : %lE\n",&XSec_Obs);
       fscanf(pFile,"NData        : %E\n" ,&NData);
       fscanf(pFile,"NPred        : %E\n" ,&NPred);
       fscanf(pFile,"NPredErr     : %E\n" ,&NPredErr);
@@ -88,13 +88,13 @@ class stAllInfo{
       fprintf(pFile,"Eff_SystPU   : %f +- %f\n",Eff_SYSTPU, EffE_SYSTPU);
       fprintf(pFile,"TotalUnc     : %f\n",TotalUnc);
       fprintf(pFile,"Signif       : %f\n",Significance);
-      fprintf(pFile,"XSec_Th      : %f\n",XSec_Th);
-      fprintf(pFile,"XSec_Exp     : %f\n",XSec_Exp);
-      fprintf(pFile,"XSec_ExpUp   : %f\n",XSec_ExpUp);
-      fprintf(pFile,"XSec_ExpDown : %f\n",XSec_ExpDown);
-      fprintf(pFile,"XSec_Exp2Up  : %f\n",XSec_Exp2Up);
-      fprintf(pFile,"XSec_Exp2Down: %f\n",XSec_Exp2Down);
-      fprintf(pFile,"XSec_Obs     : %f\n",XSec_Obs);     
+      fprintf(pFile,"XSec_Th      : %.12E\n",XSec_Th);
+      fprintf(pFile,"XSec_Exp     : %.12E\n",XSec_Exp);
+      fprintf(pFile,"XSec_ExpUp   : %.12E\n",XSec_ExpUp);
+      fprintf(pFile,"XSec_ExpDown : %.12E\n",XSec_ExpDown);
+      fprintf(pFile,"XSec_Exp2Up  : %.12E\n",XSec_Exp2Up);
+      fprintf(pFile,"XSec_Exp2Down: %.12E\n",XSec_Exp2Down);
+      fprintf(pFile,"XSec_Obs     : %.12E\n",XSec_Obs);     
       fprintf(pFile,"NData        : %+6.2E\n",NData);
       fprintf(pFile,"NPred        : %+6.2E\n",NPred);
       fprintf(pFile,"NPredErr     : %+6.2E\n",NPredErr);
@@ -111,15 +111,17 @@ string EXCLUSIONDIR = "EXCLUSION";
 //Background prediction rescale and uncertainty
 double RescaleFactor = 1.0;
 double RescaleError  = 0.2;
+//mk 
+//double RescaleError  = 0.9;
 
 //final Plot y-axis range
-double PlotMinScale = 0.0001;
+double PlotMinScale = 2.0e-7;
 double PlotMaxScale = 1000;
 
 //Easy flag to skip running time consuming Cls expected limits. True runs the limit, false does not
 bool FullExpLimit=true;
 
-void Optimize(string InputPattern, string Data, string signal, bool shape, bool cutFromFile);
+void Optimize(string InputPattern, string Data, string signal, bool shape, bool cutFromFile, int* OptimCutIndex=nullptr);
 double GetSignalMeanHSCPPerEvent(string InputPattern, unsigned int CutIndex, double MinRange, double MaxRange);
 TGraph* MakePlot(FILE* pFile, FILE* talkFile, string InputPattern, string ModelName, int XSectionType, std::vector<stSample>& modelSamples, double& LInt);
 TGraph* CheckSignalUncertainty(FILE* pFile, FILE* talkFile, string InputPattern, string ModelName, std::vector<stSample>& modelSample);
@@ -135,11 +137,17 @@ void saveVariationHistoForLimit(TH1* histo, TH1* vardown, string Name, string va
 void testShapeBasedAnalysis(string InputPattern, string signal);
 double computeSignificance(string datacard, bool expected, string& signal, string massStr, float Strength);
 bool runCombine(bool fastOptimization, bool getXsection, bool getSignificance, string& InputPattern, string& signal, unsigned int CutIndex, bool Shape, bool Temporary, stAllInfo& result, TH1* MassData, TH1* MassPred, TH1* MassSign, TH1* MassSignP, TH1* MassSignI, TH1* MassSignM, TH1* MassSignHUp, TH1* MassSignHDown, TH1* MassSignT, TH1* MassSignPU);
-bool Combine(string InputPattern, string signal7, string signal8);
+bool Combine(string InputPattern, string signal7, string signal8, int* OptimCutIndex=nullptr);
 bool useSample(int TypeMode, string sample);
+
+// int my_system(const char *cmd) {
+//  std:executiion  << std::endl << cmd << std::endl;
+//   return system(cmd);
+// }command: cout << 
 
 double MinRange = 0;
 double MaxRange = 9999;
+double XsecUnit = 1000; // mk to get limits at level of fb (for pb =1)
 int    CurrentSampleIndex;
 
 std::vector<stSample> samples;
@@ -166,7 +174,7 @@ void Analysis_Step4_LimitComputation(string MODE="COMPILE", string InputPattern=
   gStyle->SetNdivisions(550,"Y");
   //gStyle->SetTextFont(43);
 
-printf("Test %s\n", MODE.c_str());
+   printf("Test %s\n", MODE.c_str());
    if(MODE=="COMPILE")return;
 
    string Data;
@@ -190,8 +198,17 @@ printf("Test %s\n", MODE.c_str());
       if(MODE.find("OPTIMIZE")!=string::npos){    Optimize(InputPattern, Data, signal, SHAPESTRING!="", false);     return;} //testShapeBasedAnalysis(InputPattern,signal);  //use the second part if you want to run shape based analyssi on optimal point form c&c      
    }
 
-   if(MODE.find("COMPUTELIMIT2016")!=string::npos || MODE.find("OPTIMIZE2016")!=string::npos){
-      if(signal.find("13TeV16")==string::npos) return;
+   if(MODE.find("COMPUTELIMIT2016G")!=string::npos || MODE.find("OPTIMIZE2016G")!=string::npos){
+      if(signal.find("13TeV16G")==string::npos) return;
+      Data = "Data13TeV16G"; SQRTS=13167.0; EXCLUSIONDIR+="13TeV16G";
+      printf("EXCLUSIONDIR = %s\nData = %s\n",EXCLUSIONDIR.c_str(), Data.c_str());  
+
+      if(MODE.find("COMPUTELIMIT")!=string::npos){Optimize(InputPattern, Data, signal, SHAPESTRING!="", true);      return;}
+      if(MODE.find("OPTIMIZE")!=string::npos){    Optimize(InputPattern, Data, signal, SHAPESTRING!="", false);     return;} //testShapeBasedAnalysis(InputPattern,signal);  //use the second part if you want to run shape based analyssi on optimal point form c&c      
+   }
+
+   if(MODE.find("16G") == string::npos && (MODE.find("COMPUTELIMIT2016")!=string::npos || MODE.find("OPTIMIZE2016")!=string::npos)){
+      if(signal.find("13TeV16")==string::npos || signal.find("13TeV16G")!=string::npos) return;
       Data = "Data13TeV16"; SQRTS=1316.0; EXCLUSIONDIR+="13TeV16";
       printf("EXCLUSIONDIR = %s\nData = %s\n",EXCLUSIONDIR.c_str(), Data.c_str());  
 
@@ -220,6 +237,43 @@ printf("Test %s\n", MODE.c_str());
       return;
    }
 
+   if(MODE.find("COMBINE2016")!=string::npos){
+      printf("COMBINE!!!\n");
+
+      string signal13TeV16  = ReplacePartOfString(signal, "13TeV16", "13TeV") + "W13TeV16";
+      string signal13TeV16G = ReplacePartOfString(signal, "13TeV16G", "13TeV") + "W13TeV16G";
+
+      string EXCLUSIONDIR_SAVE = EXCLUSIONDIR;
+
+      //2016 PreG Limits
+      signed int OptCutIndex = -1;
+      printf("2016 pre-G Data ...\n");
+      Data = "Data13TeV16"; SQRTS=1316.0; EXCLUSIONDIR=EXCLUSIONDIR_SAVE+"13TeV16";
+      Optimize(InputPattern, Data, signal, SHAPESTRING!="", true, &OptCutIndex);
+
+      //2016 PostG Limits
+      printf("2016G post-G Data ...\n");
+      Data = "Data13TeV16G"; SQRTS=13167.0; EXCLUSIONDIR=EXCLUSIONDIR_SAVE+"13TeV16G";
+      Optimize(InputPattern, Data, ReplacePartOfString(signal, "13TeV16", "13TeV16G"), SHAPESTRING!="", true, &OptCutIndex);
+
+      //Combined Limits
+      printf("Combining ...\n");
+      EXCLUSIONDIR=EXCLUSIONDIR_SAVE+"COMB2016";  SQRTS=131667.0;
+      Combine(InputPattern, signal13TeV16, signal13TeV16G, &OptCutIndex);
+      return;
+   }
+
+   if(MODE.find("COMBINE_2016")!=string::npos){
+      
+      string signal13TeV16  = ReplacePartOfString(signal, "13TeV16", "13TeV") + "W13TeV16";
+      string signal13TeV16G = ReplacePartOfString(signal, "13TeV16G", "13TeV") + "W13TeV16G";
+      
+      string EXCLUSIONDIR_SAVE = EXCLUSIONDIR;
+      printf("Combining ...\n");
+      EXCLUSIONDIR=EXCLUSIONDIR_SAVE+"COMB2016";  SQRTS=131667.0;
+      Combine(InputPattern, signal13TeV16, signal13TeV16G);
+      return;
+   }
 
    if(MODE.find("COMBINE_Run2")!=string::npos){
       printf("COMBINE!!!\n");
@@ -235,9 +289,14 @@ printf("Test %s\n", MODE.c_str());
       Optimize(InputPattern, Data, ReplacePartOfString(signal, "13TeV16", "13TeV"), SHAPESTRING!="", true);
 
       //2016 Limits
-      printf("2016 Data ...\n");
+      printf("2016 pre G Data ...\n");
       Data = "Data13TeV16"; SQRTS=1316.0; EXCLUSIONDIR=EXCLUSIONDIR_SAVE+"13TeV16";
       Optimize(InputPattern, Data, signal, SHAPESTRING!="", true);
+
+      //2016G Limits
+      printf("2016G Data ...\n");
+      Data = "Data13TeV16G"; SQRTS=13167.0; EXCLUSIONDIR=EXCLUSIONDIR_SAVE+"13TeV16G";
+      Optimize(InputPattern, Data, ReplacePartOfString(signal, "13TeV16", "13TeV"), SHAPESTRING!="", true);
 
       //Combined Limits
       printf("Combining ...\n");
@@ -245,12 +304,12 @@ printf("Test %s\n", MODE.c_str());
       Combine(InputPattern, signal13TeV15, signal13TeV16);
       return;
    }
-   if     (MODE.find("7TeV"   )!=string::npos){Data = "Data7TeV"   ; SQRTS=7.0   ; EXCLUSIONDIR+="7TeV"   ; }
-   else if(MODE.find("8TeV"   )!=string::npos){Data = "Data8TeV"   ; SQRTS=8.0   ; EXCLUSIONDIR+="8TeV"   ; }
-   else if(MODE.find("13TeV15")!=string::npos){Data = "Data13TeV"  ; SQRTS=1315.0; EXCLUSIONDIR+="13TeV15"; }
-   else if(MODE.find("13TeV16")!=string::npos){Data = "Data13TeV16"; SQRTS=1316.0; EXCLUSIONDIR+="13TeV16"; }
-   else if(MODE.find("13TeV"  )!=string::npos){Data = "Data13TeV"  ; SQRTS=13.0  ; EXCLUSIONDIR+="13TeV"  ; }
-   printf("EXCLUSIONDIR = %s\nData = %s\n",EXCLUSIONDIR.c_str(), Data.c_str());  
+   if     (MODE.find("7TeV"    )!=string::npos){Data = "Data7TeV"    ; SQRTS=7.0    ; EXCLUSIONDIR+="7TeV"    ; }
+   else if(MODE.find("8TeV"    )!=string::npos){Data = "Data8TeV"    ; SQRTS=8.0    ; EXCLUSIONDIR+="8TeV"    ; }
+   else if(MODE.find("13TeV15" )!=string::npos){Data = "Data13TeV"   ; SQRTS=1315.0 ; EXCLUSIONDIR+="13TeV15" ; }
+   else if(MODE.find("13TeV16G")!=string::npos){Data = "Data13TeV16G"; SQRTS=13167.0; EXCLUSIONDIR+="13TeV16G"; }
+   else if(MODE.find("13TeV16" )!=string::npos){Data = "Data13TeV16" ; SQRTS=1316.0 ; EXCLUSIONDIR+="13TeV16" ; }
+   else if(MODE.find("13TeV"   )!=string::npos){Data = "Data13TeV"   ; SQRTS=13.0   ; EXCLUSIONDIR+="13TeV"   ; }
 
    // #FIXME JOZE
    string TkPattern  = "Results/Type0/";
@@ -260,9 +319,10 @@ printf("Test %s\n", MODE.c_str());
 //   string LQPattern  = "Results/Type5/";  //Disabling this analyis
 
    bool Combine = (MODE.find("COMB")!=string::npos);
-   if (MODE.find("Run1")!=string::npos){EXCLUSIONDIR+="COMB"; SQRTS=78.0;}
-   if (MODE.find("Run2")!=string::npos){EXCLUSIONDIR+="COMB"; SQRTS=131615.0;}
-   if(Combine) {PlotMinScale=1E-6; PlotMaxScale=300;}
+   if (MODE.find("Run1")!=string::npos){ EXCLUSIONDIR+="COMB"    ; SQRTS=78.0    ; }
+   if (MODE.find("Run2")!=string::npos){ EXCLUSIONDIR+="COMB"    ; SQRTS=131615.0; }
+   if (MODE.find("2016")!=string::npos){ EXCLUSIONDIR+="COMB2016"; SQRTS=131677.0; }
+//   if(Combine) {PlotMinScale=1E-6; PlotMaxScale=300;} // FIXME JOZZE -- for 13TeV we don't need this
 
    string outpath = string("Results/"+SHAPESTRING+EXCLUSIONDIR+"/");
    MakeDirectories(outpath);
@@ -270,31 +330,39 @@ printf("Test %s\n", MODE.c_str());
    //determine the list of models that are considered
    GetSampleDefinition(samples);
 
-   if(SQRTS!=78.0 && SQRTS!=131615.0 && SQRTS!=131516.0) keepOnlySamplesAtSQRTS(samples, SQRTS);
+   if(SQRTS!=78.0 && SQRTS!=131615.0 && SQRTS!=131516.0 && SQRTS!=131677.0) keepOnlySamplesAtSQRTS(samples, SQRTS);
 
    for(unsigned int s=0;s<samples.size();s++){
-    if(samples[s].Type!=2)continue;
-    //printf("Name-->Model >>  %30s --> %s\n",samples[s].Name.c_str(), samples[s].ModelName().c_str());
-
-    if(SQRTS== 7.0    && samples[s].Name.find( "_7TeV")==string::npos){continue;}
-    if(SQRTS== 8.0    && samples[s].Name.find( "_8TeV")==string::npos){continue;}
-    if(SQRTS==13.0    && samples[s].Name.find("_13TeV")==string::npos){continue;}
-    if(SQRTS==1315.0  && samples[s].Name.find("_13TeV")==string::npos){continue;}
-    if(SQRTS==1316.0  && samples[s].Name.find("_13TeV")==string::npos){continue;}
-//    if(SQRTS==78.0){if(samples[s].Name.find("_7TeV")==string::npos){continue;}else{samples[s].Name.replace(samples[s].Name.find("_7TeV"),5, ""); } }
-    if(SQRTS==78.0){if(samples[s].Name.find("_8TeV")==string::npos){continue;}else{samples[s].Name.replace(samples[s].Name.find("_8TeV"),5, ""); } }
-    if(SQRTS==131615.0 || SQRTS==131516.0){
-       if  (samples[s].Name.find("_13TeV")==string::npos){continue;}
-       else{
-          samples[s].Name = ReplacePartOfString (samples[s].Name,"_13TeV16", "");
-          samples[s].Name = ReplacePartOfString (samples[s].Name,"_13TeV15", "");
-          samples[s].Name = ReplacePartOfString (samples[s].Name,"_13TeV"  , "");
-       }
-    }
-
-    modelMap[samples[s].ModelName()].push_back(samples[s]);
-    if(modelMap[samples[s].ModelName()].size()==1)modelVector.push_back(samples[s].ModelName());
+      if(samples[s].Type!=2)continue;
+      //printf("Name-->Model >>  %30s --> %s\n",samples[s].Name.c_str(), samples[s].ModelName().c_str());
+      
+      if(SQRTS== 7.0    && samples[s].Name.find( "_7TeV")==string::npos){continue;}
+      if(SQRTS== 8.0    && samples[s].Name.find( "_8TeV")==string::npos){continue;}
+      if(SQRTS==13.0    && samples[s].Name.find("_13TeV")==string::npos){continue;}
+      if(SQRTS==1315.0  && samples[s].Name.find("_13TeV")==string::npos){continue;}
+      if(SQRTS==1316.0  && (samples[s].Name.find("_13TeV16")==string::npos || samples[s].Name.find("13TeV16G")!=string::npos)){continue;}
+      if(SQRTS==13167.0 && samples[s].Name.find("_13TeV16G")==string::npos){continue;}
+//      if(SQRTS==78.0){if(samples[s].Name.find("_7TeV")==string::npos){continue;}else{samples[s].Name.replace(samples[s].Name.find("_7TeV"),5, ""); } }
+      if(SQRTS==78.0){if(samples[s].Name.find("_8TeV")==string::npos){continue;}else{samples[s].Name.replace(samples[s].Name.find("_8TeV"),5, ""); } }
+      if(SQRTS==131615.0 || SQRTS==131516.0){
+         if  (samples[s].Name.find("_13TeV")==string::npos){continue;}
+         else{
+            samples[s].Name = ReplacePartOfString (samples[s].Name,"_13TeV16" , "");
+            samples[s].Name = ReplacePartOfString (samples[s].Name,"_13TeV15" , "");
+            samples[s].Name = ReplacePartOfString (samples[s].Name,"_13TeV"   , "");
+         }
+      } else if (SQRTS==131677){
+//              if (samples[s].Name.find("13TeV16")==std::npos) continue;
+         if (samples[s].Name.find("13TeV16G")==string::npos) continue;
+         samples[s].Name = ReplacePartOfString (samples[s].Name,"_13TeV16G", "");
+      }
+        
+      if (!samples[s].ModelName().empty()){
+         modelMap[samples[s].ModelName()].push_back(samples[s]);
+         if(modelMap[samples[s].ModelName()].size()==1) modelVector.push_back(samples[s].ModelName());
+      }
    }
+   printf("EXCLUSIONDIR = %s\nData = %s\n",EXCLUSIONDIR.c_str(), Data.c_str());  
 
    //unti we have all the samples at both 7 and 8TeV, add the 7TeV models
 //   if(SQRTS== 8.0){
@@ -512,23 +580,23 @@ printf("Test %s\n", MODE.c_str());
    }
 
    if(Graphs>0) {
-   TkSystGraphs->Draw("A");
-   TkSystGraphs->SetTitle("");
-   TkSystGraphs->GetXaxis()->SetTitle("Mass (GeV)");
-   TkSystGraphs->GetYaxis()->SetTitle("Relative Uncertainty");
-   TkSystGraphs->GetYaxis()->SetTitleOffset(1.40);
-   TkSystGraphs->GetYaxis()->SetRangeUser(0.0, 0.70);
-   TkSystGraphs->GetYaxis()->SetNdivisions(505, "X");
-
-   LEG->Draw();
-   c1->SetLogy(false);
-   c1->SetGridy(false);
-
-   DrawPreliminary(LegendFromType(TkPattern).c_str(), SQRTS, IntegratedLuminosityFromE(SQRTS));
-   SaveCanvas(c1,"Results/"+SHAPESTRING+EXCLUSIONDIR+"/", "TkUncertainty");
-   delete c1;
-   delete TkSystGraphs;
-   delete LEG;
+     TkSystGraphs->Draw("A");
+     TkSystGraphs->SetTitle("");
+     TkSystGraphs->GetXaxis()->SetTitle("Mass (GeV)");
+     TkSystGraphs->GetYaxis()->SetTitle("Relative Uncertainty");
+     TkSystGraphs->GetYaxis()->SetTitleOffset(1.40);
+     TkSystGraphs->GetYaxis()->SetRangeUser(0.0, 0.70);
+     TkSystGraphs->GetYaxis()->SetNdivisions(505, "X");
+     
+     LEG->Draw();
+     c1->SetLogy(false);
+     c1->SetGridy(false);
+     
+     DrawPreliminary(LegendFromType(TkPattern).c_str(), SQRTS, IntegratedLuminosityFromE(SQRTS));
+     SaveCanvas(c1,"Results/"+SHAPESTRING+EXCLUSIONDIR+"/", "TkUncertainty");
+     delete c1;
+     delete TkSystGraphs;
+     delete LEG;
    }
 
    c1 = new TCanvas("c1", "c1",600,600);
@@ -557,23 +625,23 @@ printf("Test %s\n", MODE.c_str());
    }
 
    if(Graphs>0) {
-   MuSystGraphs->Draw("A");
-   MuSystGraphs->SetTitle("");
-   MuSystGraphs->GetXaxis()->SetTitle("Mass (GeV)");
-   MuSystGraphs->GetYaxis()->SetTitle("Relative Uncertainty");
-   MuSystGraphs->GetYaxis()->SetTitleOffset(1.40);
-   MuSystGraphs->GetYaxis()->SetRangeUser(0.0, 0.7);
-   MuSystGraphs->GetYaxis()->SetNdivisions(505, "X");
-
-   LEG->Draw();
-   c1->SetLogy(false);
-   c1->SetGridy(false);
-
-   DrawPreliminary(LegendFromType(MuPattern).c_str(), SQRTS, IntegratedLuminosityFromE(SQRTS));
-   SaveCanvas(c1,"Results/"+SHAPESTRING+EXCLUSIONDIR+"/", "MuUncertainty");
-   delete c1;
-   delete MuSystGraphs;
-   delete LEG;
+     MuSystGraphs->Draw("A");
+     MuSystGraphs->SetTitle("");
+     MuSystGraphs->GetXaxis()->SetTitle("Mass (GeV)");
+     MuSystGraphs->GetYaxis()->SetTitle("Relative Uncertainty");
+     MuSystGraphs->GetYaxis()->SetTitleOffset(1.40);
+     MuSystGraphs->GetYaxis()->SetRangeUser(0.0, 0.7);
+     MuSystGraphs->GetYaxis()->SetNdivisions(505, "X");
+     
+     LEG->Draw();
+     c1->SetLogy(false);
+     c1->SetGridy(false);
+     
+     DrawPreliminary(LegendFromType(MuPattern).c_str(), SQRTS, IntegratedLuminosityFromE(SQRTS));
+     SaveCanvas(c1,"Results/"+SHAPESTRING+EXCLUSIONDIR+"/", "MuUncertainty");
+     delete c1;
+     delete MuSystGraphs;
+     delete LEG;
    }
 
    /*
@@ -725,7 +793,7 @@ std::cout<<"TESTA\n";
          }else if(SQRTS==8){
             ThXSec   [k] = new TGraph(sizeof(THXSEC8TeV_Gluino_Mass)/sizeof(double),THXSEC8TeV_Gluino_Mass,THXSEC8TeV_Gluino_Cen);
             ThXSecErr[k] = GetErrorBand(modelVector[k]+"ThErr",sizeof(THXSEC8TeV_Gluino_Mass)/sizeof(double),THXSEC8TeV_Gluino_Mass,THXSEC8TeV_Gluino_Low,THXSEC8TeV_Gluino_High, PlotMinScale, PlotMaxScale);
-         }else if(SQRTS==13 || SQRTS==1315 || SQRTS==1316){ 
+         }else if(SQRTS==13 || SQRTS==1315 || SQRTS==1316 || SQRTS==13167 || SQRTS==131677){ 
             ThXSec   [k] = new TGraph(sizeof(THXSEC13TeV_Gluino_Mass)/sizeof(double),THXSEC13TeV_Gluino_Mass,THXSEC13TeV_Gluino_Cen);
             ThXSecErr[k] = GetErrorBand(modelVector[k]+"ThErr",sizeof(THXSEC13TeV_Gluino_Mass)/sizeof(double),THXSEC13TeV_Gluino_Mass,THXSEC13TeV_Gluino_Low,THXSEC13TeV_Gluino_High, PlotMinScale, PlotMaxScale);
          }else{
@@ -740,7 +808,7 @@ std::cout<<"TESTA\n";
          }else if(SQRTS==8){
             ThXSec   [k] = new TGraph(sizeof(THXSEC8TeV_Stop_Mass)/sizeof(double),THXSEC8TeV_Stop_Mass,THXSEC8TeV_Stop_Cen);
             ThXSecErr[k] = GetErrorBand(modelVector[k]+"ThErr",sizeof(THXSEC8TeV_Stop_Mass)/sizeof(double),THXSEC8TeV_Stop_Mass,THXSEC8TeV_Stop_Low,THXSEC8TeV_Stop_High, PlotMinScale, PlotMaxScale);
-         }else if(SQRTS==13 || SQRTS==1315 || SQRTS==1316){
+         }else if(SQRTS==13 || SQRTS==1315 || SQRTS==1316 || SQRTS==13167 || SQRTS==131677){
             ThXSec   [k] = new TGraph(sizeof(THXSEC13TeV_Stop_Mass)/sizeof(double),THXSEC13TeV_Stop_Mass,THXSEC13TeV_Stop_Cen);
             ThXSecErr[k] = GetErrorBand(modelVector[k]+"ThErr",sizeof(THXSEC13TeV_Stop_Mass)/sizeof(double),THXSEC13TeV_Stop_Mass,THXSEC13TeV_Stop_Low,THXSEC13TeV_Stop_High, PlotMinScale, PlotMaxScale);
          }else{
@@ -750,12 +818,12 @@ std::cout<<"TESTA\n";
          }
       }else if(modelVector[k].find("GMStau"  )!=string::npos){
          if(SQRTS==7){
-            ThXSec   [k] = MakePlot(NULL, NULL, TkPattern,modelVector[k], 0, modelMap[modelVector[k]], LInt); 
-            ThXSecErr[k] = GetErrorBand(modelVector[k]+"ThErr", sizeof(THXSEC7TeV_GMStau_Mass)/sizeof(double),THXSEC7TeV_GMStau_Mass,THXSEC7TeV_GMStau_Low,THXSEC7TeV_GMStau_High, PlotMinScale, PlotMaxScale); 
+            ThXSec   [k] = MakePlot(NULL, NULL, TkPattern,modelVector[k], 0, modelMap[modelVector[k]], LInt);
+            ThXSecErr[k] = GetErrorBand(modelVector[k]+"ThErr", sizeof(THXSEC7TeV_GMStau_Mass)/sizeof(double),THXSEC7TeV_GMStau_Mass,THXSEC7TeV_GMStau_Low,THXSEC7TeV_GMStau_High, PlotMinScale, PlotMaxScale);
          }else if(SQRTS==8){
             ThXSec   [k] = MakePlot(NULL, NULL, TkPattern,modelVector[k], 0, modelMap[modelVector[k]], LInt);
             ThXSecErr[k] = GetErrorBand(modelVector[k]+"ThErr", sizeof(THXSEC8TeV_GMStau_Mass)/sizeof(double),THXSEC8TeV_GMStau_Mass,THXSEC8TeV_GMStau_Low,THXSEC8TeV_GMStau_High, PlotMinScale, PlotMaxScale);
-         }else if(SQRTS==13 || SQRTS==1315 || SQRTS==1316){ 
+         }else if(SQRTS==13 || SQRTS==1315 || SQRTS==1316 || SQRTS==13167 || SQRTS==131677){
 //            #Prospino xsection that I get looks very weird, use pythia for the time being
             ThXSec   [k] = new TGraph(sizeof(THXSEC13TeV_GMStau_Mass)/sizeof(double),THXSEC13TeV_GMStau_Mass,THXSEC13TeV_GMStau_Cen);
             ThXSecErr[k] = GetErrorBand(modelVector[k]+"ThErr", sizeof(THXSEC13TeV_GMStau_Mass)/sizeof(double),THXSEC13TeV_GMStau_Mass,THXSEC13TeV_GMStau_Low,THXSEC13TeV_GMStau_High, PlotMinScale, PlotMaxScale);
@@ -776,7 +844,7 @@ std::cout<<"TESTA\n";
          }else if(SQRTS==8){
             ThXSec   [k] = MakePlot(NULL, NULL, TkPattern,modelVector[k], 0, modelMap[modelVector[k]], LInt);
             ThXSecErr[k] = GetErrorBand(modelVector[k]+"ThErr", sizeof(THXSEC8TeV_PPStau_Mass)/sizeof(double),THXSEC8TeV_PPStau_Mass,THXSEC8TeV_PPStau_Low,THXSEC8TeV_PPStau_High, PlotMinScale, PlotMaxScale);
-         }else if(SQRTS==13 || SQRTS==1315 || SQRTS==1316){
+         }else if(SQRTS==13 || SQRTS==1315 || SQRTS==1316 || SQRTS==13167 || SQRTS==131677){
 //            #Prospino xsection that I get looks very weird, use pythia for the time being
             ThXSec   [k] = new TGraph(sizeof(THXSEC13TeV_PPStau_Mass)/sizeof(double),THXSEC13TeV_PPStau_Mass,THXSEC13TeV_PPStau_Cen);
             ThXSecErr[k] = GetErrorBand(modelVector[k]+"ThErr", sizeof(THXSEC13TeV_PPStau_Mass)/sizeof(double),THXSEC13TeV_PPStau_Mass,THXSEC13TeV_PPStau_Low,THXSEC13TeV_PPStau_High, PlotMinScale, PlotMaxScale);
@@ -887,7 +955,7 @@ std::cout<<"TESTB\n";
 
 std::cout<<"TESTC\n";
 
-
+ std::cout<<"qui arriva\n";
    //Make the final plot with all curves in it
    // I don't like much this part because it is dependent of what is in Analysis_Samples.h in an hardcoded way   
    std::map<string, TGraph*> TkGraphMap;
@@ -898,6 +966,9 @@ std::cout<<"TESTC\n";
    std::map<string, TGraph*> ThGraphMap;
    std::map<string, TCutG* > ThErrorMap;
    for(unsigned int k=0; k<modelVector.size(); k++){
+ std::cout<<k<<" "<<modelVector[k]<< " "<<MODE.c_str()<<std::endl;
+
+     std::cout << modelVector[k] << std::endl;
       TkGraphMap[modelVector[k]] = TkGraphs [k];
       MuGraphMap[modelVector[k]] = MuGraphs [k];
       //LQGraphMap[modelVector[k]] = LQGraphs [k];
@@ -906,40 +977,110 @@ std::cout<<"TESTC\n";
       ThGraphMap[modelVector[k]] = ThXSec   [k];
       ThErrorMap[modelVector[k]] = ThXSecErr[k];
    }
+   std::cout<<"qui anche \n";
+std::cout<<MODE.c_str()<<std::endl;
 
-   ThGraphMap["Gluino_f10"   ]->SetLineColor(4);  ThGraphMap["Gluino_f10"   ]->SetMarkerColor(4);   ThGraphMap["Gluino_f10"   ]->SetLineWidth(1);   ThGraphMap["Gluino_f10"   ]->SetLineStyle(1);  ThGraphMap["Gluino_f10"   ]->SetMarkerStyle(1);
-   MuGraphMap["Gluino_f10"   ]->SetLineColor(4);  MuGraphMap["Gluino_f10"   ]->SetMarkerColor(4);   MuGraphMap["Gluino_f10"   ]->SetLineWidth(2);   MuGraphMap["Gluino_f10"   ]->SetLineStyle(1);  MuGraphMap["Gluino_f10"   ]->SetMarkerStyle(22);
-   MuGraphMap["Gluino_f50"   ]->SetLineColor(4);  MuGraphMap["Gluino_f50"   ]->SetMarkerColor(4);   MuGraphMap["Gluino_f50"   ]->SetLineWidth(2);   MuGraphMap["Gluino_f50"   ]->SetLineStyle(1);  MuGraphMap["Gluino_f50"   ]->SetMarkerStyle(23);
-   TkGraphMap["Gluino_f10"   ]->SetLineColor(4);  TkGraphMap["Gluino_f10"   ]->SetMarkerColor(4);   TkGraphMap["Gluino_f10"   ]->SetLineWidth(2);   TkGraphMap["Gluino_f10"   ]->SetLineStyle(1);  TkGraphMap["Gluino_f10"   ]->SetMarkerStyle(22);
-   TkGraphMap["Gluino_f50"   ]->SetLineColor(4);  TkGraphMap["Gluino_f50"   ]->SetMarkerColor(4);   TkGraphMap["Gluino_f50"   ]->SetLineWidth(2);   TkGraphMap["Gluino_f50"   ]->SetLineStyle(1);  TkGraphMap["Gluino_f50"   ]->SetMarkerStyle(23);
-   TkGraphMap["GluinoN_f10"  ]->SetLineColor(4);  TkGraphMap["GluinoN_f10"  ]->SetMarkerColor(4);   TkGraphMap["GluinoN_f10"  ]->SetLineWidth(2);   TkGraphMap["GluinoN_f10"  ]->SetLineStyle(1);  TkGraphMap["GluinoN_f10"  ]->SetMarkerStyle(26);
-   MuGraphMap["Gluino16_f10"   ]->SetLineColor(4);  MuGraphMap["Gluino16_f10"   ]->SetMarkerColor(4);   MuGraphMap["Gluino16_f10"   ]->SetLineWidth(2);   MuGraphMap["Gluino16_f10"   ]->SetLineStyle(1);  MuGraphMap["Gluino16_f10"   ]->SetMarkerStyle(22);
-   MuGraphMap["Gluino16_f50"   ]->SetLineColor(4);  MuGraphMap["Gluino16_f50"   ]->SetMarkerColor(4);   MuGraphMap["Gluino16_f50"   ]->SetLineWidth(2);   MuGraphMap["Gluino16_f50"   ]->SetLineStyle(1);  MuGraphMap["Gluino16_f50"   ]->SetMarkerStyle(23);
-   TkGraphMap["Gluino16_f10"   ]->SetLineColor(4);  TkGraphMap["Gluino16_f10"   ]->SetMarkerColor(4);   TkGraphMap["Gluino16_f10"   ]->SetLineWidth(2);   TkGraphMap["Gluino16_f10"   ]->SetLineStyle(1);  TkGraphMap["Gluino16_f10"   ]->SetMarkerStyle(22);
-   TkGraphMap["Gluino16_f50"   ]->SetLineColor(4);  TkGraphMap["Gluino16_f50"   ]->SetMarkerColor(4);   TkGraphMap["Gluino16_f50"   ]->SetLineWidth(2);   TkGraphMap["Gluino16_f50"   ]->SetLineStyle(1);  TkGraphMap["Gluino16_f50"   ]->SetMarkerStyle(23);
-   TkGraphMap["Gluino16N_f10"  ]->SetLineColor(4);  TkGraphMap["Gluino16N_f10"  ]->SetMarkerColor(4);   TkGraphMap["Gluino16N_f10"  ]->SetLineWidth(2);   TkGraphMap["Gluino16N_f10"  ]->SetLineStyle(1);  TkGraphMap["Gluino16N_f10"  ]->SetMarkerStyle(26);
+   // FIXME add GluinoN_f50 maybe as well?
+  
+// if (MODE.find("13TeV16")==std::string::npos){
+ std::cout<<"loop 1 "<<MODE.c_str()<<std::endl;
+
+     std::cout<<"entrare anche 1"<<std::endl;
+     ThGraphMap["Gluino_f10"   ]->SetLineColor(4);  ThGraphMap["Gluino_f10"   ]->SetMarkerColor(4);   ThGraphMap["Gluino_f10"   ]->SetLineWidth(1);   ThGraphMap["Gluino_f10"   ]->SetLineStyle(1);  ThGraphMap["Gluino_f10"   ]->SetMarkerStyle(1);
+ std::cout<<"loop 1 "<<MODE.c_str()<<std::endl;
+
+     MuGraphMap["Gluino_f10"   ]->SetLineColor(4);  MuGraphMap["Gluino_f10"   ]->SetMarkerColor(4);   MuGraphMap["Gluino_f10"   ]->SetLineWidth(2);   MuGraphMap["Gluino_f10"   ]->SetLineStyle(1);  MuGraphMap["Gluino_f10"   ]->SetMarkerStyle(22);
+     MuGraphMap["Gluino_f50"   ]->SetLineColor(4);  MuGraphMap["Gluino_f50"   ]->SetMarkerColor(4);   MuGraphMap["Gluino_f50"   ]->SetLineWidth(2);   MuGraphMap["Gluino_f50"   ]->SetLineStyle(1);  MuGraphMap["Gluino_f50"   ]->SetMarkerStyle(23);
+     TkGraphMap["Gluino_f10"   ]->SetLineColor(4);  TkGraphMap["Gluino_f10"   ]->SetMarkerColor(4);   TkGraphMap["Gluino_f10"   ]->SetLineWidth(2);   TkGraphMap["Gluino_f10"   ]->SetLineStyle(1);  TkGraphMap["Gluino_f10"   ]->SetMarkerStyle(22);
+     TkGraphMap["Gluino_f50"   ]->SetLineColor(4);  TkGraphMap["Gluino_f50"   ]->SetMarkerColor(4);   TkGraphMap["Gluino_f50"   ]->SetLineWidth(2);   TkGraphMap["Gluino_f50"   ]->SetLineStyle(1);  TkGraphMap["Gluino_f50"   ]->SetMarkerStyle(23);
+     TkGraphMap["GluinoN_f10"  ]->SetLineColor(4);  TkGraphMap["GluinoN_f10"  ]->SetMarkerColor(4);   TkGraphMap["GluinoN_f10"  ]->SetLineWidth(2);   TkGraphMap["GluinoN_f10"  ]->SetLineStyle(1);  TkGraphMap["GluinoN_f10"  ]->SetMarkerStyle(26);
+      ThGraphMap["Stop"         ]->SetLineColor(2);  ThGraphMap["Stop"         ]->SetMarkerColor(2);   ThGraphMap["Stop"         ]->SetLineWidth(1);   ThGraphMap["Stop"         ]->SetLineStyle(2);  ThGraphMap["Stop"         ]->SetMarkerStyle(1);
+      MuGraphMap["Stop"         ]->SetLineColor(2);  MuGraphMap["Stop"         ]->SetMarkerColor(2);   MuGraphMap["Stop"         ]->SetLineWidth(2);   MuGraphMap["Stop"         ]->SetLineStyle(1);  MuGraphMap["Stop"         ]->SetMarkerStyle(21);
+      TkGraphMap["Stop"         ]->SetLineColor(2);  TkGraphMap["Stop"         ]->SetMarkerColor(2);   TkGraphMap["Stop"         ]->SetLineWidth(2);   TkGraphMap["Stop"         ]->SetLineStyle(1);  TkGraphMap["Stop"         ]->SetMarkerStyle(21);
+      TkGraphMap["StopN"        ]->SetLineColor(2);  TkGraphMap["StopN"        ]->SetMarkerColor(2);   TkGraphMap["StopN"        ]->SetLineWidth(2);   TkGraphMap["StopN"        ]->SetLineStyle(1);  TkGraphMap["StopN"        ]->SetMarkerStyle(25);
+      ThGraphMap["GMStau"       ]->SetLineColor(1);  ThGraphMap["GMStau"       ]->SetMarkerColor(1);   ThGraphMap["GMStau"       ]->SetLineWidth(1);   ThGraphMap["GMStau"       ]->SetLineStyle(3);  ThGraphMap["GMStau"       ]->SetMarkerStyle(1);
+      ThGraphMap["PPStau"       ]->SetLineColor(6);  ThGraphMap["PPStau"       ]->SetMarkerColor(6);   ThGraphMap["PPStau"       ]->SetLineWidth(1);   ThGraphMap["PPStau"       ]->SetLineStyle(4);  ThGraphMap["PPStau"       ]->SetMarkerStyle(1);
+      MuGraphMap["GMStau"       ]->SetLineColor(1);  MuGraphMap["GMStau"       ]->SetMarkerColor(1);   MuGraphMap["GMStau"       ]->SetLineWidth(2);   MuGraphMap["GMStau"       ]->SetLineStyle(1);  MuGraphMap["GMStau"       ]->SetMarkerStyle(20);
+      MuGraphMap["PPStau"       ]->SetLineColor(6);  MuGraphMap["PPStau"       ]->SetMarkerColor(6);   MuGraphMap["PPStau"       ]->SetLineWidth(2);   MuGraphMap["PPStau"       ]->SetLineStyle(1);  MuGraphMap["PPStau"       ]->SetMarkerStyle(20);
+      TkGraphMap["GMStau"       ]->SetLineColor(1);  TkGraphMap["GMStau"       ]->SetMarkerColor(1);   TkGraphMap["GMStau"       ]->SetLineWidth(2);   TkGraphMap["GMStau"       ]->SetLineStyle(1);  TkGraphMap["GMStau"       ]->SetMarkerStyle(20);
+      TkGraphMap["PPStau"       ]->SetLineColor(6);  TkGraphMap["PPStau"       ]->SetMarkerColor(6);   TkGraphMap["PPStau"       ]->SetLineWidth(2);   TkGraphMap["PPStau"       ]->SetLineStyle(1);  TkGraphMap["PPStau"       ]->SetMarkerStyle(20);
+      ThGraphMap["DY_Q1"        ]->SetLineColor(46); ThGraphMap["DY_Q1"        ]->SetMarkerColor(46);  ThGraphMap["DY_Q1"        ]->SetLineWidth(1);   ThGraphMap["DY_Q1"        ]->SetLineStyle(8);  ThGraphMap["DY_Q1"        ]->SetMarkerStyle(1);
+      MuGraphMap["DY_Q1"        ]->SetLineColor(46); MuGraphMap["DY_Q1"        ]->SetMarkerColor(46);  MuGraphMap["DY_Q1"        ]->SetLineWidth(2);   MuGraphMap["DY_Q1"        ]->SetLineStyle(1);  MuGraphMap["DY_Q1"      ]->SetMarkerStyle(20);
+      TkGraphMap["DY_Q1"        ]->SetLineColor(46); TkGraphMap["DY_Q1"        ]->SetMarkerColor(46);  TkGraphMap["DY_Q1"        ]->SetLineWidth(2);   TkGraphMap["DY_Q1"        ]->SetLineStyle(1);  TkGraphMap["DY_Q1"      ]->SetMarkerStyle(20);
+      ThGraphMap["DY_Q2"        ]->SetLineColor(43); ThGraphMap["DY_Q2"        ]->SetMarkerColor(43);  ThGraphMap["DY_Q2"        ]->SetLineWidth(1);   ThGraphMap["DY_Q2"        ]->SetLineStyle(10); ThGraphMap["DY_Q2"      ]->SetMarkerStyle(1);
+      MuGraphMap["DY_Q2"        ]->SetLineColor(43); MuGraphMap["DY_Q2"        ]->SetMarkerColor(43);  MuGraphMap["DY_Q2"        ]->SetLineWidth(2);   MuGraphMap["DY_Q2"        ]->SetLineStyle(1);  MuGraphMap["DY_Q2"      ]->SetMarkerStyle(34);
+      TkGraphMap["DY_Q2"        ]->SetLineColor(43); TkGraphMap["DY_Q2"        ]->SetMarkerColor(43);  TkGraphMap["DY_Q2"        ]->SetLineWidth(2);   TkGraphMap["DY_Q2"        ]->SetLineStyle(1);  TkGraphMap["DY_Q2"      ]->SetMarkerStyle(34);
+      std::cout<<"esce anche"<<std::endl;
+   
+//}
+
+/*
+   else if (MODE.find("13TeV16")!=std::string::npos && MODE.find("13TeV16G")==std::string::npos){
+ std::cout<<"loop 2 "<<MODE.c_str()<<std::endl;
+
+     ThGraphMap["Gluino16_f10"   ]->SetLineColor(4);  ThGraphMap["Gluino16_f10"   ]->SetMarkerColor(4);   ThGraphMap["Gluino16_f10"   ]->SetLineWidth(1);   ThGraphMap["Gluino16_f10"   ]->SetLineStyle(1);  ThGraphMap["Gluino16_f10"   ]->SetMarkerStyle(1);
+ std::cout<<"loop 2 "<<MODE.c_str()<<std::endl;
+
+     MuGraphMap["Gluino16_f10"   ]->SetLineColor(4);  MuGraphMap["Gluino16_f10"   ]->SetMarkerColor(4);   MuGraphMap["Gluino16_f10"   ]->SetLineWidth(2);   MuGraphMap["Gluino16_f10"   ]->SetLineStyle(1);  MuGraphMap["Gluino16_f10"   ]->SetMarkerStyle(22);
+     MuGraphMap["Gluino16_f50"   ]->SetLineColor(4);  MuGraphMap["Gluino16_f50"   ]->SetMarkerColor(4);   MuGraphMap["Gluino16_f50"   ]->SetLineWidth(2);   MuGraphMap["Gluino16_f50"   ]->SetLineStyle(1);  MuGraphMap["Gluino16_f50"   ]->SetMarkerStyle(23);
+     TkGraphMap["Gluino16_f10"   ]->SetLineColor(4);  TkGraphMap["Gluino16_f10"   ]->SetMarkerColor(4);   TkGraphMap["Gluino16_f10"   ]->SetLineWidth(2);   TkGraphMap["Gluino16_f10"   ]->SetLineStyle(1);  TkGraphMap["Gluino16_f10"   ]->SetMarkerStyle(22);
+     TkGraphMap["Gluino16_f50"   ]->SetLineColor(4);  TkGraphMap["Gluino16_f50"   ]->SetMarkerColor(4);   TkGraphMap["Gluino16_f50"   ]->SetLineWidth(2);   TkGraphMap["Gluino16_f50"   ]->SetLineStyle(1);  TkGraphMap["Gluino16_f50"   ]->SetMarkerStyle(23);
+     TkGraphMap["Gluino16N_f10"  ]->SetLineColor(4);  TkGraphMap["Gluino16N_f10"  ]->SetMarkerColor(4);   TkGraphMap["Gluino16N_f10"  ]->SetLineWidth(2);   TkGraphMap["Gluino16N_f10"  ]->SetLineStyle(1);  TkGraphMap["Gluino16N_f10"  ]->SetMarkerStyle(26);
+     ThGraphMap["Stop16"         ]->SetLineColor(2);  ThGraphMap["Stop16"         ]->SetMarkerColor(2);   ThGraphMap["Stop16"         ]->SetLineWidth(1);   ThGraphMap["Stop16"         ]->SetLineStyle(2);  ThGraphMap["Stop16"         ]->SetMarkerStyle(1);
+     MuGraphMap["Stop16"         ]->SetLineColor(2);  MuGraphMap["Stop16"         ]->SetMarkerColor(2);   MuGraphMap["Stop16"         ]->SetLineWidth(2);   MuGraphMap["Stop16"         ]->SetLineStyle(1);  MuGraphMap["Stop16"         ]->SetMarkerStyle(21);
+     TkGraphMap["Stop16"         ]->SetLineColor(2);  TkGraphMap["Stop16"         ]->SetMarkerColor(2);   TkGraphMap["Stop16"         ]->SetLineWidth(2);   TkGraphMap["Stop16"         ]->SetLineStyle(1);  TkGraphMap["Stop16"         ]->SetMarkerStyle(21);
+     TkGraphMap["Stop16N"        ]->SetLineColor(2);  TkGraphMap["Stop16N"        ]->SetMarkerColor(2);   TkGraphMap["Stop16N"        ]->SetLineWidth(2);   TkGraphMap["Stop16N"        ]->SetLineStyle(1);  TkGraphMap["Stop16N"        ]->SetMarkerStyle(25);
+     ThGraphMap["GMStau16"       ]->SetLineColor(1);  ThGraphMap["GMStau16"       ]->SetMarkerColor(1);   ThGraphMap["GMStau16"       ]->SetLineWidth(1);   ThGraphMap["GMStau16"       ]->SetLineStyle(3);  ThGraphMap["GMStau16"       ]->SetMarkerStyle(1);
+     ThGraphMap["PPStau16"       ]->SetLineColor(6);  ThGraphMap["PPStau16"       ]->SetMarkerColor(6);   ThGraphMap["PPStau16"       ]->SetLineWidth(1);   ThGraphMap["PPStau16"       ]->SetLineStyle(4);  ThGraphMap["PPStau16"       ]->SetMarkerStyle(1);
+     MuGraphMap["GMStau16"       ]->SetLineColor(1);  MuGraphMap["GMStau16"       ]->SetMarkerColor(1);   MuGraphMap["GMStau16"       ]->SetLineWidth(2);   MuGraphMap["GMStau16"       ]->SetLineStyle(1);  MuGraphMap["GMStau16"       ]->SetMarkerStyle(20);
+     MuGraphMap["PPStau16"       ]->SetLineColor(6);  MuGraphMap["PPStau16"       ]->SetMarkerColor(6);   MuGraphMap["PPStau16"       ]->SetLineWidth(2);   MuGraphMap["PPStau16"       ]->SetLineStyle(1);  MuGraphMap["PPStau16"       ]->SetMarkerStyle(20);
+     TkGraphMap["GMStau16"       ]->SetLineColor(1);  TkGraphMap["GMStau16"       ]->SetMarkerColor(1);   TkGraphMap["GMStau16"       ]->SetLineWidth(2);   TkGraphMap["GMStau16"       ]->SetLineStyle(1);  TkGraphMap["GMStau16"       ]->SetMarkerStyle(20);
+     TkGraphMap["PPStau16"       ]->SetLineColor(6);  TkGraphMap["PPStau16"       ]->SetMarkerColor(6);   TkGraphMap["PPStau16"       ]->SetLineWidth(2);   TkGraphMap["PPStau16"       ]->SetLineStyle(1);  TkGraphMap["PPStau16"       ]->SetMarkerStyle(20);
+     ThGraphMap["DY16_Q1"        ]->SetLineColor(46); ThGraphMap["DY16_Q1"        ]->SetMarkerColor(46);  ThGraphMap["DY16_Q1"        ]->SetLineWidth(1);   ThGraphMap["DY16_Q1"        ]->SetLineStyle(8);  ThGraphMap["DY16_Q1"        ]->SetMarkerStyle(1);
+     MuGraphMap["DY16_Q1"        ]->SetLineColor(46); MuGraphMap["DY16_Q1"        ]->SetMarkerColor(46);  MuGraphMap["DY16_Q1"        ]->SetLineWidth(2);   MuGraphMap["DY16_Q1"        ]->SetLineStyle(1);  MuGraphMap["DY16_Q1"      ]->SetMarkerStyle(20);
+     TkGraphMap["DY16_Q1"        ]->SetLineColor(46); TkGraphMap["DY16_Q1"        ]->SetMarkerColor(46);  TkGraphMap["DY16_Q1"        ]->SetLineWidth(2);   TkGraphMap["DY16_Q1"        ]->SetLineStyle(1);  TkGraphMap["DY16_Q1"      ]->SetMarkerStyle(20);
+     ThGraphMap["DY16_Q2"        ]->SetLineColor(43); ThGraphMap["DY16_Q2"        ]->SetMarkerColor(43);  ThGraphMap["DY16_Q2"        ]->SetLineWidth(1);   ThGraphMap["DY16_Q2"        ]->SetLineStyle(10); ThGraphMap["DY16_Q2"      ]->SetMarkerStyle(1);
+     MuGraphMap["DY16_Q2"        ]->SetLineColor(43); MuGraphMap["DY16_Q2"        ]->SetMarkerColor(43);  MuGraphMap["DY16_Q2"        ]->SetLineWidth(2);   MuGraphMap["DY16_Q2"        ]->SetLineStyle(1);  MuGraphMap["DY16_Q2"      ]->SetMarkerStyle(34);
+     TkGraphMap["DY16_Q2"        ]->SetLineColor(43); TkGraphMap["DY16_Q2"        ]->SetMarkerColor(43);  TkGraphMap["DY16_Q2"        ]->SetLineWidth(2);   TkGraphMap["DY16_Q2"        ]->SetLineStyle(1);  TkGraphMap["DY16_Q2"      ]->SetMarkerStyle(34);
+   }
+
+
+   else if (MODE.find("13TeV16G")!=std::string::npos){
+ std::cout<<"loop 3 "<<MODE.c_str()<<std::endl;
+
+     ThGraphMap["Gluino16G_f10"   ]->SetLineColor(4);  ThGraphMap["Gluino16G_f10"   ]->SetMarkerColor(4);   ThGraphMap["Gluino16G_f10"   ]->SetLineWidth(1);   ThGraphMap["Gluino16G_f10"   ]->SetLineStyle(1);  ThGraphMap["Gluino16G_f10"   ]->SetMarkerStyle(1);
+ std::cout<<"loop 3 "<<MODE.c_str()<<std::endl;
+
+     MuGraphMap["Gluino16G_f10"   ]->SetLineColor(4);  MuGraphMap["Gluino16G_f10"   ]->SetMarkerColor(4);   MuGraphMap["Gluino16G_f10"   ]->SetLineWidth(2);   MuGraphMap["Gluino16G_f10"   ]->SetLineStyle(1);  MuGraphMap["Gluino16G_f10"   ]->SetMarkerStyle(22);
+
+     MuGraphMap["Gluino16G_f50"   ]->SetLineColor(4);  MuGraphMap["Gluino16G_f50"   ]->SetMarkerColor(4);   MuGraphMap["Gluino16G_f50"   ]->SetLineWidth(2);   MuGraphMap["Gluino16G_f50"   ]->SetLineStyle(1);  MuGraphMap["Gluino16G_f50"   ]->SetMarkerStyle(23);
+     TkGraphMap["Gluino16G_f10"   ]->SetLineColor(4);  TkGraphMap["Gluino16G_f10"   ]->SetMarkerColor(4);   TkGraphMap["Gluino16G_f10"   ]->SetLineWidth(2);   TkGraphMap["Gluino16G_f10"   ]->SetLineStyle(1);  TkGraphMap["Gluino16G_f10"   ]->SetMarkerStyle(22);
+     TkGraphMap["Gluino16G_f50"   ]->SetLineColor(4);  TkGraphMap["Gluino16G_f50"   ]->SetMarkerColor(4);   TkGraphMap["Gluino16G_f50"   ]->SetLineWidth(2);   TkGraphMap["Gluino16G_f50"   ]->SetLineStyle(1);  TkGraphMap["Gluino16G_f50"   ]->SetMarkerStyle(23);
+     TkGraphMap["Gluino16GN_f10"  ]->SetLineColor(4);  TkGraphMap["Gluino16GN_f10"  ]->SetMarkerColor(4);   TkGraphMap["Gluino16GN_f10"  ]->SetLineWidth(2);   TkGraphMap["Gluino16GN_f10"  ]->SetLineStyle(1);  TkGraphMap["Gluino16GN_f10"  ]->SetMarkerStyle(26);
+     ThGraphMap["Stop16G"         ]->SetLineColor(2);  ThGraphMap["Stop16G"         ]->SetMarkerColor(2);   ThGraphMap["Stop16G"         ]->SetLineWidth(1);   ThGraphMap["Stop16G"         ]->SetLineStyle(2);  ThGraphMap["Stop16G"         ]->SetMarkerStyle(1);
+     MuGraphMap["Stop16G"         ]->SetLineColor(2);  MuGraphMap["Stop16G"         ]->SetMarkerColor(2);   MuGraphMap["Stop16G"         ]->SetLineWidth(2);   MuGraphMap["Stop16G"         ]->SetLineStyle(1);  MuGraphMap["Stop16G"         ]->SetMarkerStyle(21);
+     TkGraphMap["Stop16G"         ]->SetLineColor(2);  TkGraphMap["Stop16G"         ]->SetMarkerColor(2);   TkGraphMap["Stop16G"         ]->SetLineWidth(2);   TkGraphMap["Stop16G"         ]->SetLineStyle(1);  TkGraphMap["Stop16G"         ]->SetMarkerStyle(21);
+     TkGraphMap["Stop16GN"        ]->SetLineColor(2);  TkGraphMap["Stop16GN"        ]->SetMarkerColor(2);   TkGraphMap["Stop16GN"        ]->SetLineWidth(2);   TkGraphMap["Stop16GN"        ]->SetLineStyle(1);  TkGraphMap["Stop16GN"        ]->SetMarkerStyle(25);
+     ThGraphMap["GMStau16G"       ]->SetLineColor(1);  ThGraphMap["GMStau16G"       ]->SetMarkerColor(1);   ThGraphMap["GMStau16G"       ]->SetLineWidth(1);   ThGraphMap["GMStau16G"       ]->SetLineStyle(3);  ThGraphMap["GMStau16G"       ]->SetMarkerStyle(1);
+     ThGraphMap["PPStau16G"       ]->SetLineColor(6);  ThGraphMap["PPStau16G"       ]->SetMarkerColor(6);   ThGraphMap["PPStau16G"       ]->SetLineWidth(1);   ThGraphMap["PPStau16G"       ]->SetLineStyle(4);  ThGraphMap["PPStau16G"       ]->SetMarkerStyle(1);
+     MuGraphMap["GMStau16G"       ]->SetLineColor(1);  MuGraphMap["GMStau16G"       ]->SetMarkerColor(1);   MuGraphMap["GMStau16G"       ]->SetLineWidth(2);   MuGraphMap["GMStau16G"       ]->SetLineStyle(1);  MuGraphMap["GMStau16G"       ]->SetMarkerStyle(20);
+     MuGraphMap["PPStau16G"       ]->SetLineColor(6);  MuGraphMap["PPStau16G"       ]->SetMarkerColor(6);   MuGraphMap["PPStau16G"       ]->SetLineWidth(2);   MuGraphMap["PPStau16G"       ]->SetLineStyle(1);  MuGraphMap["PPStau16G"       ]->SetMarkerStyle(20);
+     TkGraphMap["GMStau16G"       ]->SetLineColor(1);  TkGraphMap["GMStau16G"       ]->SetMarkerColor(1);   TkGraphMap["GMStau16G"       ]->SetLineWidth(2);   TkGraphMap["GMStau16G"       ]->SetLineStyle(1);  TkGraphMap["GMStau16G"       ]->SetMarkerStyle(20);
+     TkGraphMap["PPStau16G"       ]->SetLineColor(6);  TkGraphMap["PPStau16G"       ]->SetMarkerColor(6);   TkGraphMap["PPStau16G"       ]->SetLineWidth(2);   TkGraphMap["PPStau16G"       ]->SetLineStyle(1);  TkGraphMap["PPStau16G"       ]->SetMarkerStyle(20);
+     ThGraphMap["DY16G_Q1"        ]->SetLineColor(46); ThGraphMap["DY16G_Q1"        ]->SetMarkerColor(46);  ThGraphMap["DY16G_Q1"        ]->SetLineWidth(1);   ThGraphMap["DY16G_Q1"        ]->SetLineStyle(8);  ThGraphMap["DY16G_Q1"        ]->SetMarkerStyle(1);
+     MuGraphMap["DY16G_Q1"        ]->SetLineColor(46); MuGraphMap["DY16G_Q1"        ]->SetMarkerColor(46);  MuGraphMap["DY16G_Q1"        ]->SetLineWidth(2);   MuGraphMap["DY16G_Q1"        ]->SetLineStyle(1);  MuGraphMap["DY16G_Q1"      ]->SetMarkerStyle(20);
+     TkGraphMap["DY16G_Q1"        ]->SetLineColor(46); TkGraphMap["DY16G_Q1"        ]->SetMarkerColor(46);  TkGraphMap["DY16G_Q1"        ]->SetLineWidth(2);   TkGraphMap["DY16G_Q1"        ]->SetLineStyle(1);  TkGraphMap["DY16G_Q1"      ]->SetMarkerStyle(20);
+     ThGraphMap["DY16G_Q2"        ]->SetLineColor(43); ThGraphMap["DY16G_Q2"        ]->SetMarkerColor(43);  ThGraphMap["DY16G_Q2"        ]->SetLineWidth(1);   ThGraphMap["DY16G_Q2"        ]->SetLineStyle(10); ThGraphMap["DY16G_Q2"      ]->SetMarkerStyle(1);
+     MuGraphMap["DY16G_Q2"        ]->SetLineColor(43); MuGraphMap["DY16G_Q2"        ]->SetMarkerColor(43);  MuGraphMap["DY16G_Q2"        ]->SetLineWidth(2);   MuGraphMap["DY16G_Q2"        ]->SetLineStyle(1);  MuGraphMap["DY16G_Q2"      ]->SetMarkerStyle(34);
+     TkGraphMap["DY16G_Q2"        ]->SetLineColor(43); TkGraphMap["DY16G_Q2"        ]->SetMarkerColor(43);  TkGraphMap["DY16G_Q2"        ]->SetLineWidth(2);   TkGraphMap["DY16G_Q2"        ]->SetLineStyle(1);  TkGraphMap["DY16G_Q2"      ]->SetMarkerStyle(34);
+   }
+*/
+
+
    //MOGraphMap["Gluino_f10"   ]->SetLineColor(4);  MOGraphMap["Gluino_f10"   ]->SetMarkerColor(4);   MOGraphMap["Gluino_f10"   ]->SetLineWidth(2);   MOGraphMap["Gluino_f10"   ]->SetLineStyle(1);  MOGraphMap["Gluino_f10"   ]->SetMarkerStyle(22);
    //MOGraphMap["Gluino_f50"   ]->SetLineColor(4);  MOGraphMap["Gluino_f50"   ]->SetMarkerColor(4);   MOGraphMap["Gluino_f50"   ]->SetLineWidth(2);   MOGraphMap["Gluino_f50"   ]->SetLineStyle(1);  MOGraphMap["Gluino_f50"   ]->SetMarkerStyle(23);
    //MOGraphMap["Gluino_f100"  ]->SetLineColor(4);  MOGraphMap["Gluino_f100"  ]->SetMarkerColor(4);   MOGraphMap["Gluino_f100"  ]->SetLineWidth(2);   MOGraphMap["Gluino_f100"  ]->SetLineStyle(1);  MOGraphMap["Gluino_f100"  ]->SetMarkerStyle(26);
-   ThGraphMap["Stop"         ]->SetLineColor(2);  ThGraphMap["Stop"         ]->SetMarkerColor(2);   ThGraphMap["Stop"         ]->SetLineWidth(1);   ThGraphMap["Stop"         ]->SetLineStyle(2);  ThGraphMap["Stop"         ]->SetMarkerStyle(1);
-   MuGraphMap["Stop"         ]->SetLineColor(2);  MuGraphMap["Stop"         ]->SetMarkerColor(2);   MuGraphMap["Stop"         ]->SetLineWidth(2);   MuGraphMap["Stop"         ]->SetLineStyle(1);  MuGraphMap["Stop"         ]->SetMarkerStyle(21);
-   TkGraphMap["Stop"         ]->SetLineColor(2);  TkGraphMap["Stop"         ]->SetMarkerColor(2);   TkGraphMap["Stop"         ]->SetLineWidth(2);   TkGraphMap["Stop"         ]->SetLineStyle(1);  TkGraphMap["Stop"         ]->SetMarkerStyle(21);
-   TkGraphMap["StopN"        ]->SetLineColor(2);  TkGraphMap["StopN"        ]->SetMarkerColor(2);   TkGraphMap["StopN"        ]->SetLineWidth(2);   TkGraphMap["StopN"        ]->SetLineStyle(1);  TkGraphMap["StopN"        ]->SetMarkerStyle(25);
-   MuGraphMap["Stop16"         ]->SetLineColor(2);  MuGraphMap["Stop16"         ]->SetMarkerColor(2);   MuGraphMap["Stop16"         ]->SetLineWidth(2);   MuGraphMap["Stop16"         ]->SetLineStyle(1);  MuGraphMap["Stop16"         ]->SetMarkerStyle(21);
-   TkGraphMap["Stop16"         ]->SetLineColor(2);  TkGraphMap["Stop16"         ]->SetMarkerColor(2);   TkGraphMap["Stop16"         ]->SetLineWidth(2);   TkGraphMap["Stop16"         ]->SetLineStyle(1);  TkGraphMap["Stop16"         ]->SetMarkerStyle(21);
-   TkGraphMap["Stop16N"        ]->SetLineColor(2);  TkGraphMap["Stop16N"        ]->SetMarkerColor(2);   TkGraphMap["Stop16N"        ]->SetLineWidth(2);   TkGraphMap["Stop16N"        ]->SetLineStyle(1);  TkGraphMap["Stop16N"        ]->SetMarkerStyle(25);
    //MOGraphMap["Stop"         ]->SetLineColor(2);  MOGraphMap["Stop"         ]->SetMarkerColor(2);   MOGraphMap["Stop"         ]->SetLineWidth(2);   MOGraphMap["Stop"         ]->SetLineStyle(1);  MOGraphMap["Stop"         ]->SetMarkerStyle(21);
-   ThGraphMap["GMStau"       ]->SetLineColor(1);  ThGraphMap["GMStau"       ]->SetMarkerColor(1);   ThGraphMap["GMStau"       ]->SetLineWidth(1);   ThGraphMap["GMStau"       ]->SetLineStyle(3);  ThGraphMap["GMStau"       ]->SetMarkerStyle(1);
-   ThGraphMap["PPStau"       ]->SetLineColor(6);  ThGraphMap["PPStau"       ]->SetMarkerColor(6);   ThGraphMap["PPStau"       ]->SetLineWidth(1);   ThGraphMap["PPStau"       ]->SetLineStyle(4);  ThGraphMap["PPStau"       ]->SetMarkerStyle(1);
-   MuGraphMap["GMStau"       ]->SetLineColor(1);  MuGraphMap["GMStau"       ]->SetMarkerColor(1);   MuGraphMap["GMStau"       ]->SetLineWidth(2);   MuGraphMap["GMStau"       ]->SetLineStyle(1);  MuGraphMap["GMStau"       ]->SetMarkerStyle(20);
-   MuGraphMap["PPStau"       ]->SetLineColor(6);  MuGraphMap["PPStau"       ]->SetMarkerColor(6);   MuGraphMap["PPStau"       ]->SetLineWidth(2);   MuGraphMap["PPStau"       ]->SetLineStyle(1);  MuGraphMap["PPStau"       ]->SetMarkerStyle(20);
-   TkGraphMap["GMStau"       ]->SetLineColor(1);  TkGraphMap["GMStau"       ]->SetMarkerColor(1);   TkGraphMap["GMStau"       ]->SetLineWidth(2);   TkGraphMap["GMStau"       ]->SetLineStyle(1);  TkGraphMap["GMStau"       ]->SetMarkerStyle(20);
-   TkGraphMap["PPStau"       ]->SetLineColor(6);  TkGraphMap["PPStau"       ]->SetMarkerColor(6);   TkGraphMap["PPStau"       ]->SetLineWidth(2);   TkGraphMap["PPStau"       ]->SetLineStyle(1);  TkGraphMap["PPStau"       ]->SetMarkerStyle(20);
-   MuGraphMap["GMStau16"       ]->SetLineColor(1);  MuGraphMap["GMStau16"       ]->SetMarkerColor(1);   MuGraphMap["GMStau16"       ]->SetLineWidth(2);   MuGraphMap["GMStau16"       ]->SetLineStyle(1);  MuGraphMap["GMStau16"       ]->SetMarkerStyle(20);
-   MuGraphMap["PPStau16"       ]->SetLineColor(6);  MuGraphMap["PPStau16"       ]->SetMarkerColor(6);   MuGraphMap["PPStau16"       ]->SetLineWidth(2);   MuGraphMap["PPStau16"       ]->SetLineStyle(1);  MuGraphMap["PPStau16"       ]->SetMarkerStyle(20);
-   TkGraphMap["GMStau16"       ]->SetLineColor(1);  TkGraphMap["GMStau16"       ]->SetMarkerColor(1);   TkGraphMap["GMStau16"       ]->SetLineWidth(2);   TkGraphMap["GMStau16"       ]->SetLineStyle(1);  TkGraphMap["GMStau16"       ]->SetMarkerStyle(20);
-   TkGraphMap["PPStau16"       ]->SetLineColor(6);  TkGraphMap["PPStau16"       ]->SetMarkerColor(6);   TkGraphMap["PPStau16"       ]->SetLineWidth(2);   TkGraphMap["PPStau16"       ]->SetLineStyle(1);  TkGraphMap["PPStau16"       ]->SetMarkerStyle(20);
-
    //ThGraphMap["DY_Q1o3"      ]->SetLineColor(41); ThGraphMap["DY_Q1o3"      ]->SetMarkerColor(41);  ThGraphMap["DY_Q1o3"      ]->SetLineWidth(1);   ThGraphMap["DY_Q1o3"      ]->SetLineStyle(9);  ThGraphMap["DY_Q1o3"      ]->SetMarkerStyle(1);
    //TkGraphMap["DY_Q1o3"      ]->SetLineColor(41); TkGraphMap["DY_Q1o3"      ]->SetMarkerColor(41);  TkGraphMap["DY_Q1o3"      ]->SetLineWidth(2);   TkGraphMap["DY_Q1o3"      ]->SetLineStyle(1);  TkGraphMap["DY_Q1o3"      ]->SetMarkerStyle(33);
    //MOGraphMap["DY_Q1o3"      ]->SetLineColor(41); MOGraphMap["DY_Q1o3"      ]->SetMarkerColor(41);  MOGraphMap["DY_Q1o3"      ]->SetLineWidth(2);   MOGraphMap["DY_Q1o3"      ]->SetLineStyle(1);  MOGraphMap["DY_Q1o3"      ]->SetMarkerStyle(33);
@@ -950,17 +1091,7 @@ std::cout<<"TESTC\n";
    //MOGraphMap["DY_Q2o3"      ]->SetLineColor(43); MOGraphMap["DY_Q2o3"      ]->SetMarkerColor(43);  MOGraphMap["DY_Q2o3"      ]->SetLineWidth(2);   MOGraphMap["DY_Q2o3"      ]->SetLineStyle(1);  MOGraphMap["DY_Q2o3"      ]->SetMarkerStyle(34);
    //LQGraphMap["DY_Q2o3"      ]->SetLineColor(43); LQGraphMap["DY_Q2o3"      ]->SetMarkerColor(43);  LQGraphMap["DY_Q2o3"      ]->SetLineWidth(2);   LQGraphMap["DY_Q2o3"      ]->SetLineStyle(1);  LQGraphMap["DY_Q2o3"      ]->SetMarkerStyle(34);
    //LQGraphMap["DY_Q1"        ]->SetLineColor(46); LQGraphMap["DY_Q1"        ]->SetMarkerColor(46);  LQGraphMap["DY_Q1"        ]->SetLineWidth(2);   LQGraphMap["DY_Q1"        ]->SetLineStyle(1);  LQGraphMap["DY_Q1"        ]->SetMarkerStyle(20);
-
-   ThGraphMap["DY_Q1"        ]->SetLineColor(46); ThGraphMap["DY_Q1"        ]->SetMarkerColor(46);  ThGraphMap["DY_Q1"        ]->SetLineWidth(1);   ThGraphMap["DY_Q1"        ]->SetLineStyle(8);  ThGraphMap["DY_Q1"        ]->SetMarkerStyle(1);
-   MuGraphMap["DY_Q1"        ]->SetLineColor(46); MuGraphMap["DY_Q1"        ]->SetMarkerColor(46);  MuGraphMap["DY_Q1"        ]->SetLineWidth(2);   MuGraphMap["DY_Q1"        ]->SetLineStyle(1);  MuGraphMap["DY_Q1"      ]->SetMarkerStyle(20);
-   TkGraphMap["DY_Q1"        ]->SetLineColor(46); TkGraphMap["DY_Q1"        ]->SetMarkerColor(46);  TkGraphMap["DY_Q1"        ]->SetLineWidth(2);   TkGraphMap["DY_Q1"        ]->SetLineStyle(1);  TkGraphMap["DY_Q1"      ]->SetMarkerStyle(20);
-   ThGraphMap["DY16_Q1"        ]->SetLineColor(46); ThGraphMap["DY16_Q1"        ]->SetMarkerColor(46);  ThGraphMap["DY16_Q1"        ]->SetLineWidth(1);   ThGraphMap["DY16_Q1"        ]->SetLineStyle(8);  ThGraphMap["DY16_Q1"        ]->SetMarkerStyle(1);
-   MuGraphMap["DY16_Q1"        ]->SetLineColor(46); MuGraphMap["DY16_Q1"        ]->SetMarkerColor(46);  MuGraphMap["DY16_Q1"        ]->SetLineWidth(2);   MuGraphMap["DY16_Q1"        ]->SetLineStyle(1);  MuGraphMap["DY16_Q1"      ]->SetMarkerStyle(20);
-   TkGraphMap["DY16_Q1"        ]->SetLineColor(46); TkGraphMap["DY16_Q1"        ]->SetMarkerColor(46);  TkGraphMap["DY16_Q1"        ]->SetLineWidth(2);   TkGraphMap["DY16_Q1"        ]->SetLineStyle(1);  TkGraphMap["DY16_Q1"      ]->SetMarkerStyle(20);
    //HQGraphMap["DY_Q1"        ]->SetLineColor(46); HQGraphMap["DY_Q1"        ]->SetMarkerColor(46);  HQGraphMap["DY_Q1"        ]->SetLineWidth(2);   HQGraphMap["DY_Q1"        ]->SetLineStyle(1);  HQGraphMap["DY_Q1"        ]->SetMarkerStyle(20);
-   ThGraphMap["DY16_Q2"        ]->SetLineColor(43); ThGraphMap["DY16_Q2"        ]->SetMarkerColor(43);  ThGraphMap["DY16_Q2"        ]->SetLineWidth(1);   ThGraphMap["DY16_Q2"        ]->SetLineStyle(10);  ThGraphMap["DY16_Q2"        ]->SetMarkerStyle(1);
-   MuGraphMap["DY16_Q2"        ]->SetLineColor(43); MuGraphMap["DY16_Q2"        ]->SetMarkerColor(43);  MuGraphMap["DY16_Q2"        ]->SetLineWidth(2);   MuGraphMap["DY16_Q2"        ]->SetLineStyle(1);  MuGraphMap["DY16_Q2"      ]->SetMarkerStyle(34);
-   TkGraphMap["DY16_Q2"        ]->SetLineColor(43); TkGraphMap["DY16_Q2"        ]->SetMarkerColor(43);  TkGraphMap["DY16_Q2"        ]->SetLineWidth(2);   TkGraphMap["DY16_Q2"        ]->SetLineStyle(1);  TkGraphMap["DY16_Q2"      ]->SetMarkerStyle(34);
    //HQGraphMap["DY_Q2"        ]->SetLineColor(2 ); HQGraphMap["DY_Q2"        ]->SetMarkerColor(2 );  HQGraphMap["DY_Q2"        ]->SetLineWidth(2);   HQGraphMap["DY_Q2"        ]->SetLineStyle(1);  HQGraphMap["DY_Q2"        ]->SetMarkerStyle(21);
    //ThGraphMap["DY_Q3"        ]->SetLineColor(1 ); ThGraphMap["DY_Q3"        ]->SetMarkerColor(1 );  ThGraphMap["DY_Q3"        ]->SetLineWidth(1);   ThGraphMap["DY_Q3"        ]->SetLineStyle(9);  ThGraphMap["DY_Q3"        ]->SetMarkerStyle(1);
    //HQGraphMap["DY_Q3"        ]->SetLineColor(1 ); HQGraphMap["DY_Q3"        ]->SetMarkerColor(1 );  HQGraphMap["DY_Q3"        ]->SetLineWidth(2);   HQGraphMap["DY_Q3"        ]->SetLineStyle(1);  HQGraphMap["DY_Q3"        ]->SetMarkerStyle(22);
@@ -975,6 +1106,8 @@ std::cout<<"TESTC\n";
    //ThGraphMap["DY_Q8"        ]->SetLineColor(14); ThGraphMap["DY_Q8"        ]->SetMarkerColor(14);  ThGraphMap["DY_Q8"        ]->SetLineWidth(1);   ThGraphMap["DY_Q8"        ]->SetLineStyle(10); ThGraphMap["DY_Q8"        ]->SetMarkerStyle(1);
    //HQGraphMap["DY_Q8"        ]->SetLineColor(14); HQGraphMap["DY_Q8"        ]->SetMarkerColor(14);  HQGraphMap["DY_Q8"        ]->SetLineWidth(2);   HQGraphMap["DY_Q8"        ]->SetLineStyle(1);  HQGraphMap["DY_Q8"        ]->SetMarkerStyle(24);
 
+   std::cout<<"qui anche 2\n";
+
 std::cout<<"TESTD\n";
    c1 = new TCanvas("c1", "c1",600,600);
    c1->SetLogy(true);
@@ -984,99 +1117,101 @@ std::cout<<"TESTD\n";
    frame->SetTitle("");
    frame->SetStats(kFALSE);
    frame->GetXaxis()->SetTitle("Mass (GeV)");
-   frame->GetYaxis()->SetTitle(Combine?"95% CL limit on #sigma/#sigma_{th}":"95% CL limit on #sigma (pb)");
+   frame->GetYaxis()->SetTitle(/*Combine?"95% CL limit on #sigma/#sigma_{th}":*/"95% CL limit on #sigma (pb)");
    frame->GetYaxis()->SetTitleOffset(1.40);
    frame->SetMaximum(PlotMaxScale);
    frame->SetMinimum(PlotMinScale);
-   frame->GetYaxis()->SetRangeUser(1e-4, 1.5e1); // JOZZE EDIT
+//   frame->GetYaxis()->SetRangeUser(!Combine?1e-4:2e-5, !Combine?1.5e1:2.5e1); // JOZZE EDIT
+   frame->GetYaxis()->SetRangeUser(5e-5,1.1e1);//mk
    frame->Draw("AXIS");
 
 
 //   MGMu->Draw("A");
 
+   std::string tmp = "";
+//   if      (MODE.find("13TeV16G")!=std::string::npos) tmp = "16G";
+//   else if (MODE.find("13TeV16")!=std::string::npos)  tmp = "16" ;
 
-   if(!Combine) {
-      ThErrorMap["Gluino_f10"]->Draw("F");
-      ThGraphMap["Gluino_f10" ]->Draw("L");
+////   if(!Combine) {
+      ThErrorMap["Gluino"+tmp+"_f10"]->Draw("F");
+      ThGraphMap["Gluino"+tmp+"_f10" ]->Draw("L");
 
-      ThErrorMap["Stop"      ]->Draw("F");
-      ThGraphMap["Stop"       ]->Draw("L");
+      ThErrorMap["Stop"+tmp      ]->Draw("F");
+      ThGraphMap["Stop"+tmp      ]->Draw("L");
 
-      ThErrorMap["GMStau"    ]->Draw("F");
-      ThGraphMap["GMStau"     ]->Draw("L");
+      ThErrorMap["GMStau"+tmp    ]->Draw("F");
+      ThGraphMap["GMStau"+tmp     ]->Draw("L");
 
-      ThErrorMap["PPStau"    ]->Draw("F");
-      ThGraphMap["PPStau"     ]->Draw("L");
+      ThErrorMap["PPStau"+tmp    ]->Draw("F");
+      ThGraphMap["PPStau"+tmp     ]->Draw("L");
 
       //ThErrorMap["DY_Q2o3"   ]->Draw("F");
       //ThGraphMap["DY_Q2o3"    ]->Draw("L");
 
-      ThErrorMap["DY_Q1"   ]->Draw("F");
-      ThGraphMap["DY_Q1"    ]->Draw("L");
+      ThErrorMap["DY"+tmp+"_Q1"   ]->Draw("F");
+      ThGraphMap["DY"+tmp+"_Q1"    ]->Draw("L");
+                         
+      ThErrorMap["DY"+tmp+"_Q2"   ]->Draw("F");
+      ThGraphMap["DY"+tmp+"_Q2"    ]->Draw("L");
+////   }else{
+////      TLine* LineAtOne = new TLine(50,1,1550,1);      LineAtOne->SetLineStyle(3);   LineAtOne->Draw(); // FIXME do we really need this for 2016? Since it's at 13TeV, we might not really need it finally
+////   }
 
-      ThErrorMap["DY_Q2"   ]->Draw("F");
-      ThGraphMap["DY_Q2"    ]->Draw("L");
-   }else{
-      TLine* LineAtOne = new TLine(50,1,1550,1);      LineAtOne->SetLineStyle(3);   LineAtOne->Draw();
-   }
-
-   MuGraphMap["Gluino16_f10" ]->Draw("LP");
-   MuGraphMap["Gluino16_f50" ]->Draw("LP");
-   MuGraphMap["Stop16"       ]->Draw("LP");
-   MuGraphMap["GMStau16"     ]->Draw("LP");
-   MuGraphMap["PPStau16"     ]->Draw("LP");
-   //MuGraphMap["DY_Q2o3"    ]->Draw("LP");
-   MuGraphMap["DY16_Q1"    ]->Draw("LP");
-   MuGraphMap["DY16_Q2"    ]->Draw("LP");
+   MuGraphMap["Gluino"+tmp+"_f10"]->Draw("LP");
+   MuGraphMap["Gluino"+tmp+"_f50"]->Draw("LP");
+   MuGraphMap["Stop"+tmp      ]->Draw("LP");
+   MuGraphMap["GMStau"+tmp    ]->Draw("LP");
+   MuGraphMap["PPStau"+tmp    ]->Draw("LP");
+   MuGraphMap["DY"+tmp+"_Q1"     ]->Draw("LP");
+   MuGraphMap["DY"+tmp+"_Q2"     ]->Draw("LP");
 
    DrawPreliminary(LegendFromType(MuPattern).c_str(), SQRTS, IntegratedLuminosityFromE(SQRTS));
-   TLegend* LEGMu = !Combine ? new TLegend(0.60,0.82-7*0.043,0.93,0.82) : new TLegend(0.60,0.15,0.93,0.15+7*0.043);
+   TLegend* LEGMu = /*!Combine ? */new TLegend(0.60,0.82-7*0.043,0.93,0.82)/* : new TLegend(0.60,0.15,0.93,0.15+7*0.043)*/;
    LEGMu->SetTextFont(43); //give the font size in pixel (instead of fraction)
    LEGMu->SetTextSize(18); //font size
    LEGMu->SetFillColor(0); 
    LEGMu->SetFillStyle(0);
    LEGMu->SetBorderSize(0);
-   LEGMu->AddEntry(MuGraphMap["Gluino16_f50"] , "gluino; 50% #tilde{g}g"    ,"LP");
-   LEGMu->AddEntry(MuGraphMap["Gluino16_f10"] , "gluino; 10% #tilde{g}g"    ,"LP");
-   LEGMu->AddEntry(MuGraphMap["Stop16"      ] , "stop"                      ,"LP");
-   LEGMu->AddEntry(MuGraphMap["PPStau16"    ] , "stau; dir. prod."           ,"LP");
-   LEGMu->AddEntry(MuGraphMap["GMStau16"    ] , "stau"                 ,"LP");
-   //LEGMu->AddEntry(MuGraphMap["DY_Q2o3"   ], "|Q| = 2e/3"                ,"LP");
-   LEGMu->AddEntry(MuGraphMap["DY16_Q1"   ], "|Q| = 1e"                ,"LP");
-   LEGMu->AddEntry(MuGraphMap["DY16_Q2"   ], "|Q| = 2e"                ,"LP");
+   LEGMu->AddEntry(MuGraphMap["Gluino"+tmp+"_f10" ] , "gluino; 50% #tilde{g}g"    ,"LP");
+   LEGMu->AddEntry(MuGraphMap["Gluino"+tmp+"_f50"] , "gluino; 10% #tilde{g}g"    ,"LP");
+   LEGMu->AddEntry(MuGraphMap["Stop"+tmp      ] , "stop"                      ,"LP");
+   LEGMu->AddEntry(MuGraphMap["GMStau"+tmp    ] , "stau; dir. prod."           ,"LP");
+   LEGMu->AddEntry(MuGraphMap["PPStau"+tmp    ] , "stau"                 ,"LP");
+   LEGMu->AddEntry(MuGraphMap["DY"+tmp+"_Q1"     ], "|Q| = 1e"                ,"LP");
+   LEGMu->AddEntry(MuGraphMap["DY"+tmp+"_Q2"     ], "|Q| = 2e"                ,"LP");
 
    TLegend* LEGTh = new TLegend(0.25,0.82-(1+6)*0.043,0.60,0.82);
    LEGTh->SetTextFont(43); //give the font size in pixel (instead of fraction)
    LEGTh->SetTextSize(18); //font size
-   if(!Combine) {
+////   if(!Combine) {
    LEGTh->SetHeader("Theoretical Prediction");
    LEGTh->SetFillColor(0);
    //LEGTh->SetFillStyle(0);
    LEGTh->SetBorderSize(0);
 
-   TGraph* GlThLeg = (TGraph*) ThGraphMap["Gluino_f10"]->Clone("GluinoThLeg");
-   GlThLeg->SetFillColor(ThErrorMap["Gluino_f10"]->GetFillColor());
+   TGraph* GlThLeg = (TGraph*) ThGraphMap["Gluino"+tmp+"_f10"]->Clone("GluinoThLeg");
+   GlThLeg->SetFillColor(ThErrorMap["Gluino"+tmp+"_f10"]->GetFillColor());
    LEGTh->AddEntry(GlThLeg, "gluino (NLO+NLL)" ,"LF");
-   TGraph* StThLeg = (TGraph*) ThGraphMap["Stop"      ]->Clone("StopThLeg");
-   StThLeg->SetFillColor(ThErrorMap["Gluino_f10"]->GetFillColor());
+   TGraph* StThLeg = (TGraph*) ThGraphMap["Stop"+tmp      ]->Clone("StopThLeg");
+   StThLeg->SetFillColor(ThErrorMap["Gluino"+tmp+"_f10"]->GetFillColor());
    LEGTh->AddEntry(StThLeg   ,"stop (NLO+NLL)" ,"LF");
-   TGraph* PPStauThLeg = (TGraph*) ThGraphMap["PPStau"        ]->Clone("PPStauThLeg");
-   PPStauThLeg->SetFillColor(ThErrorMap["Gluino_f10"]->GetFillColor());
+   TGraph* PPStauThLeg = (TGraph*) ThGraphMap["PPStau"+tmp        ]->Clone("PPStauThLeg");
+   PPStauThLeg->SetFillColor(ThErrorMap["Gluino"+tmp+"_f10"]->GetFillColor());
    LEGTh->AddEntry(PPStauThLeg   ,"stau, dir. prod. (NLO)" ,"LF");
-   TGraph* StauThLeg = (TGraph*) ThGraphMap["GMStau"        ]->Clone("StauThLeg");
-   StauThLeg->SetFillColor(ThErrorMap["Gluino_f10"]->GetFillColor());
+   TGraph* StauThLeg = (TGraph*) ThGraphMap["GMStau"+tmp        ]->Clone("StauThLeg");
+   StauThLeg->SetFillColor(ThErrorMap["Gluino"+tmp+"_f10"]->GetFillColor());
    LEGTh->AddEntry(StauThLeg   ,"stau (NLO)" ,"LF");
    //TGraph* DYQ2o3ThLeg = (TGraph*) ThGraphMap["DY_Q2o3"        ]->Clone("DYQ2o3ThLeg");
    //DYQ2o3ThLeg->SetFillColor(ThErrorMap["DY_Q2o3"]->GetFillColor());
    //LEGTh->AddEntry(DYQ2o3ThLeg   ,"|Q| = 2e/3 (LO)" ,"LF");
-   TGraph* DYQ1ThLeg = (TGraph*) ThGraphMap["DY_Q1"        ]->Clone("DYQ1ThLeg");
-   DYQ1ThLeg->SetFillColor(ThErrorMap["DY_Q1"]->GetFillColor());
+   TGraph* DYQ1ThLeg = (TGraph*) ThGraphMap["DY"+tmp+"_Q1"        ]->Clone("DYQ1ThLeg");
+   DYQ1ThLeg->SetFillColor(ThErrorMap["DY"+tmp+"_Q1"]->GetFillColor());
    LEGTh->AddEntry(DYQ1ThLeg   ,"|Q| = 1e (LO)" ,"LF");
-   TGraph* DYQ2ThLeg = (TGraph*) ThGraphMap["DY_Q2"        ]->Clone("DYQ2ThLeg");
-   DYQ2ThLeg->SetFillColor(ThErrorMap["DY_Q2"]->GetFillColor());
+   TGraph* DYQ2ThLeg = (TGraph*) ThGraphMap["DY"+tmp+"_Q2"        ]->Clone("DYQ2ThLeg");
+   DYQ2ThLeg->SetFillColor(ThErrorMap["DY"+tmp+"_Q2"]->GetFillColor());
    LEGTh->AddEntry(DYQ2ThLeg   ,"|Q| = 2e (LO)" ,"LF");
    LEGTh->Draw();
-   }
+////   }
    LEGMu->Draw();
 
    c1->SetLogy(true);
@@ -1094,98 +1229,101 @@ std::cout<<"TESTD\n";
 //   frame->GetYaxis()->SetTitleOffset(1.40);
 //   frame->SetMaximum(PlotMaxScale);
 //   frame->SetMinimum(PlotMinScale);
-   frame->GetYaxis()->SetRangeUser(1e-4, 1.5e1); // JOZZE EDIT
+//   frame->GetYaxis()->SetRangeUser(!Combine?1e-4:2e-5, !Combine?1.5e1:2.5e1); // JOZZE EDIT
+   frame->GetYaxis()->SetRangeUser(5e-5,1.1e1);//mk
+
    frame->Draw("AXIS");
 
-   if(!Combine) {
-      ThErrorMap["Gluino_f10"]->Draw("F");
-      ThGraphMap["Gluino_f10"]->Draw("L");
+////   if(!Combine) {
+      ThErrorMap["Gluino"+tmp+"_f10"]->Draw("F");
+      ThGraphMap["Gluino"+tmp+"_f10"]->Draw("L");
 
-      ThErrorMap["Stop"      ]->Draw("F");
-      ThGraphMap["Stop"      ]->Draw("L");
+      ThErrorMap["Stop"+tmp      ]->Draw("F");
+      ThGraphMap["Stop"+tmp      ]->Draw("L");
 
-      ThErrorMap["GMStau"    ]->Draw("F");
-      ThGraphMap["GMStau"    ]->Draw("L");
+      ThErrorMap["GMStau"+tmp    ]->Draw("F");
+      ThGraphMap["GMStau"+tmp    ]->Draw("L");
 
-      ThErrorMap["PPStau"    ]->Draw("F");
-      ThGraphMap["PPStau"    ]->Draw("L");
+      ThErrorMap["PPStau"+tmp    ]->Draw("F");
+      ThGraphMap["PPStau"+tmp    ]->Draw("L");
 
-      ThErrorMap["DY_Q1"   ]->Draw("F");
-      ThGraphMap["DY_Q1"   ]->Draw("L");
-
-      ThErrorMap["DY_Q2"   ]->Draw("F");
-      ThGraphMap["DY_Q2"   ]->Draw("L");
+      ThErrorMap["DY"+tmp+"_Q1"   ]->Draw("F");
+      ThGraphMap["DY"+tmp+"_Q1"   ]->Draw("L");
+                          
+      ThErrorMap["DY"+tmp+"_Q2"   ]->Draw("F");
+      ThGraphMap["DY"+tmp+"_Q2"   ]->Draw("L");
 
       //ThErrorMap["DY_Q2o3"   ]->Draw("F");
       //ThGraphMap["DY_Q2o3"   ]->Draw("L");
-   }else{
-      TLine* LineAtOne = new TLine(50,1,1550,1);      LineAtOne->SetLineStyle(3);   LineAtOne->Draw();
-   }
+////   }else{
+////      TLine* LineAtOne = new TLine(50,1,1550,1);      LineAtOne->SetLineStyle(3);   LineAtOne->Draw();
+////   }
 
-   TkGraphMap["Gluino16_f10" ]->Draw("LP");
-   TkGraphMap["Gluino16_f50" ]->Draw("LP");
-   TkGraphMap["Gluino16N_f10"]->Draw("LP");
-   TkGraphMap["Stop16"       ]->Draw("LP");
-   TkGraphMap["Stop16N"      ]->Draw("LP");
-   TkGraphMap["GMStau16"     ]->Draw("LP");
-   TkGraphMap["PPStau16"     ]->Draw("LP");
-   TkGraphMap["DY16_Q1"    ]->Draw("LP");
-   TkGraphMap["DY16_Q2"    ]->Draw("LP");
+   TkGraphMap["Gluino"+tmp+"_f10" ]->Draw("LP");
+   TkGraphMap["Gluino"+tmp+"_f50" ]->Draw("LP");
+   TkGraphMap["Gluino"+tmp+"N_f10"]->Draw("LP");
+   TkGraphMap["Stop"+tmp      ]->Draw("LP");
+   TkGraphMap["Stop"+tmp+"N"     ]->Draw("LP");
+   TkGraphMap["GMStau"+tmp    ]->Draw("LP");
+   TkGraphMap["PPStau"+tmp    ]->Draw("LP");
+   TkGraphMap["DY"+tmp+"_Q1"     ]->Draw("LP");
+   TkGraphMap["DY"+tmp+"_Q2"     ]->Draw("LP");
    //TkGraphMap["DY_Q2o3"    ]->Draw("LP");
 
    DrawPreliminary(LegendFromType(TkPattern).c_str(), SQRTS, IntegratedLuminosityFromE(SQRTS));
 
-   TLegend* LEGTk = !Combine ? new TLegend(0.60,0.82-8*0.043,0.93,0.82) : new TLegend(0.60,0.15,0.93,0.15+8*0.043);
+   TLegend* LEGTk = /*!Combine ? */new TLegend(0.60,0.82-8*0.043,0.93,0.82)/* : new TLegend(0.60,0.15,0.93,0.15+8*0.043)*/;
    LEGTk->SetTextFont(43); //give the font size in pixel (instead of fraction)
    LEGTk->SetTextSize(18); //font size
    LEGTk->SetFillColor(0); 
    LEGTk->SetFillStyle(0);
    LEGTk->SetBorderSize(0);
-   LEGTk->AddEntry(TkGraphMap["Gluino16_f50" ], "gluino; 50% #tilde{g}g"            ,"LP");
-   LEGTk->AddEntry(TkGraphMap["Gluino16_f10" ], "gluino; 10% #tilde{g}g"            ,"LP");
-   LEGTk->AddEntry(TkGraphMap["Gluino16N_f10"], "gluino; 10% #tilde{g}g; CS"        ,"LP");
-   LEGTk->AddEntry(TkGraphMap["Stop16"       ], "stop"                              ,"LP");
-   LEGTk->AddEntry(TkGraphMap["Stop16N"      ], "stop; CS"                          ,"LP");
-   LEGTk->AddEntry(TkGraphMap["PPStau16"     ], "stau; dir. prod."                ,"LP");
-   LEGTk->AddEntry(TkGraphMap["GMStau16"     ], "stau"                              ,"LP");
+   LEGTk->AddEntry(TkGraphMap["Gluino"+tmp+"_f50" ], "gluino; 50% #tilde{g}g"            ,"LP");
+   LEGTk->AddEntry(TkGraphMap["Gluino"+tmp+"_f10" ], "gluino; 10% #tilde{g}g"            ,"LP");
+   LEGTk->AddEntry(TkGraphMap["Gluino"+tmp+"N_f10"], "gluino; 10% #tilde{g}g; CS"        ,"LP");
+   LEGTk->AddEntry(TkGraphMap["Stop"+tmp      ], "stop"                              ,"LP");
+   LEGTk->AddEntry(TkGraphMap["Stop"+tmp+"N"     ], "stop; CS"                          ,"LP");
+   LEGTk->AddEntry(TkGraphMap["GMStau"+tmp    ], "stau; dir. prod."                ,"LP");
+   LEGTk->AddEntry(TkGraphMap["PPStau"+tmp    ], "stau"                              ,"LP");
+   LEGTk->AddEntry(TkGraphMap["DY"+tmp+"_Q1"     ], "|Q| = 1e"                            ,"LP");
+   LEGTk->AddEntry(TkGraphMap["DY"+tmp+"_Q2"     ], "|Q| = 2e"                            ,"LP");
    //LEGTk->AddEntry(TkGraphMap["DY_Q2o3"    ], "|Q| = 2e/3"                            ,"LP");
-   LEGTk->AddEntry(TkGraphMap["DY16_Q1"    ], "|Q| = 1e"                            ,"LP");
-   LEGTk->AddEntry(TkGraphMap["DY16_Q2"    ], "|Q| = 2e"                            ,"LP");
+   /* 2016 G JOZZE */
 
    TLegend* LEGThTk = new TLegend(0.25,0.82-(1+6)*0.043,0.60,0.82);
    LEGThTk->SetTextFont(43); //give the font size in pixel (instead of fraction)
    LEGThTk->SetTextSize(18); //font size
-   if(!Combine) {
+////   if(!Combine) {
    LEGThTk->SetHeader("Theoretical Prediction");
    LEGThTk->SetFillColor(0);
    //LEGThTk->SetFillStyle(0);
    LEGThTk->SetBorderSize(0);
-   TGraph* GlThLeg = (TGraph*) ThGraphMap["Gluino_f10"]->Clone("GluinoThLeg");
-   GlThLeg->SetFillColor(ThErrorMap["Gluino_f10"]->GetFillColor());
+////   TGraph* GlThLeg = (TGraph*) ThGraphMap["Gluino"+tmp+"_f10"]->Clone("GluinoThLeg");
+   GlThLeg->SetFillColor(ThErrorMap["Gluino"+tmp+"_f10"]->GetFillColor());
    LEGThTk->AddEntry(GlThLeg, "gluino (NLO+NLL)" ,"LF");
-   TGraph* StThLeg = (TGraph*) ThGraphMap["Stop"      ]->Clone("StopThLeg");
-   StThLeg->SetFillColor(ThErrorMap["Gluino_f10"]->GetFillColor());
+////   TGraph* StThLeg = (TGraph*) ThGraphMap["Stop"+tmp      ]->Clone("StopThLeg");
+   StThLeg->SetFillColor(ThErrorMap["Gluino"+tmp+"_f10"]->GetFillColor());
    LEGThTk->AddEntry(StThLeg   ,"stop (NLO+NLL)" ,"LF");
-   TGraph* PPStauThLeg = (TGraph*) ThGraphMap["PPStau"        ]->Clone("PPStauThLeg");
-   PPStauThLeg->SetFillColor(ThErrorMap["Gluino_f10"]->GetFillColor());
+////   TGraph* PPStauThLeg = (TGraph*) ThGraphMap["PPStau"+tmp        ]->Clone("PPStauThLeg");
+   PPStauThLeg->SetFillColor(ThErrorMap["Gluino"+tmp+"_f10"]->GetFillColor());
    LEGThTk->AddEntry(PPStauThLeg   ,"stau; dir. prod. (NLO)" ,"LF");
-   TGraph* StauThLeg = (TGraph*) ThGraphMap["GMStau"        ]->Clone("StauThLeg");
-   StauThLeg->SetFillColor(ThErrorMap["Gluino_f10"]->GetFillColor());
+////   TGraph* StauThLeg = (TGraph*) ThGraphMap["GMStau"+tmp        ]->Clone("StauThLeg");
+   StauThLeg->SetFillColor(ThErrorMap["Gluino"+tmp+"_f10"]->GetFillColor());
    LEGThTk->AddEntry(StauThLeg   ,"stau (NLO)" ,"LF");
    //TGraph* DYQ2o3ThLeg = (TGraph*) ThGraphMap["DY_Q2o3"        ]->Clone("DYQ2o3ThLeg");
    //DYQ2o3ThLeg->SetFillColor(ThErrorMap["DY_Q2o3"]->GetFillColor());
    //LEGThTk->AddEntry(DYQ2o3ThLeg   ,"|Q| = 2e/3 (LO)" ,"LF");
-   TGraph* DYQ1ThLeg = (TGraph*) ThGraphMap["DY_Q1"        ]->Clone("DYQ1ThLeg");
-   DYQ1ThLeg->SetFillColor(ThErrorMap["DY_Q1"]->GetFillColor());
+////   TGraph* DYQ1ThLeg = (TGraph*) ThGraphMap["DY"+tmp+"_Q1"        ]->Clone("DYQ1ThLeg");
+   DYQ1ThLeg->SetFillColor(ThErrorMap["DY"+tmp+"_Q1"]->GetFillColor());
    LEGThTk->AddEntry(DYQ1ThLeg   ,"|Q| = 1e (LO)" ,"LF");
-   TGraph* DYQ2ThLeg = (TGraph*) ThGraphMap["DY_Q2"        ]->Clone("DYQ2ThLeg");
-   DYQ2ThLeg->SetFillColor(ThErrorMap["DY_Q2"]->GetFillColor());
+////   TGraph* DYQ2ThLeg = (TGraph*) ThGraphMap["DY"+tmp+"_Q2"        ]->Clone("DYQ2ThLeg");
+   DYQ2ThLeg->SetFillColor(ThErrorMap["DY"+tmp+"_Q2"]->GetFillColor());
    LEGThTk->AddEntry(DYQ2ThLeg   ,"|Q| = 2e (LO)" ,"LF");
 
    LEGThTk->Draw();
-   }
+////   }
 
-   if(!Combine) LEGThTk->Draw();
+/*   if(!Combine)*/ LEGThTk->Draw();
    LEGTk->Draw();
    c1->SetLogy(true);
    SaveCanvas(c1, outpath, string("TkExclusionLog"));
@@ -1204,8 +1342,9 @@ if(Combine){
 //   frame->GetXaxis()->SetTitle("Mass (GeV)");
 //   frame->GetYaxis()->SetTitle(Combine?"95% CL limit on #sigma/#sigma_{th}":"95% CL limit on #sigma (pb)");
 //   frame->GetYaxis()->SetTitleOffset(1.40);
-   frame->SetMaximum(20);
-   frame->SetMinimum(1e-3);
+   frame->SetMaximum(5e-2);
+   frame->SetMinimum(5e-5);//mk
+   frame->GetXaxis()->SetRangeUser(50,1700.);
    frame->Draw("AXIS");
 
    MuGraphMap["GMStau"       ]->SetLineColor(2);  MuGraphMap["GMStau"       ]->SetMarkerColor(2);   MuGraphMap["GMStau"       ]->SetLineWidth(2);   MuGraphMap["GMStau"       ]->SetLineStyle(1);  MuGraphMap["GMStau"       ]->SetMarkerStyle(22);
@@ -1223,34 +1362,32 @@ if(Combine){
 
    DrawPreliminary("", SQRTS, IntegratedLuminosityFromE(SQRTS));
 
-   LEGTk = !Combine ? new TLegend(0.50,0.92-3*0.043,0.83,0.92) : new TLegend(0.45,0.15+4*0.043,0.80,0.15+7*0.043);
+   LEGTk =/* !Combine ? */new TLegend(0.50,0.92-3*0.043,0.83,0.92)/* : new TLegend(0.45,0.15+4*0.043,0.80,0.15+7*0.043)*/;
    LEGTk->SetTextFont(43); //give the font size in pixel (instead of fraction)
    LEGTk->SetTextSize(18); //font size
    LEGTk->SetFillColor(0); 
    LEGTk->SetFillStyle(0);
    LEGTk->SetBorderSize(0);
-   LEGTk->SetHeader("Stau prod. (direct+indirect)");
-   LEGTk->AddEntry(MuGraphMap["GMStau"     ], LegendFromType(MuPattern).c_str()                              ,"LP");
+   LEGTk->SetHeader("Stau prod. (cascade)");
    LEGTk->AddEntry(TkGraphMap["GMStau"     ], LegendFromType(TkPattern).c_str()                              ,"LP");
+   LEGTk->AddEntry(MuGraphMap["GMStau"     ], LegendFromType(MuPattern).c_str()                              ,"LP");
    LEGTk->Draw();
 
-   LEGTh = !Combine ? new TLegend(0.50,0.92-3*0.043,0.83,0.92) : new TLegend(0.45,0.15+0*0.043,0.80,0.15+3*0.043);
+   LEGTh =/* !Combine ? new TLegend(0.50,0.92-3*0.043,0.83,0.92)*/  new TLegend(0.50,0.92-3*0.043,0.83,.65);
    LEGTh->SetTextFont(43); //give the font size in pixel (instead of fraction)
    LEGTh->SetTextSize(18); //font size     
    LEGTh->SetFillColor(0); 
    LEGTh->SetFillStyle(0);
    LEGTh->SetBorderSize(0);
    LEGTh->SetHeader("Stau prod. (direct)");
-   LEGTh->AddEntry(MuGraphMap["PPStau"     ], LegendFromType(MuPattern).c_str()                              ,"LP");
    LEGTh->AddEntry(TkGraphMap["PPStau"     ], LegendFromType(TkPattern).c_str()                              ,"LP");
+   LEGTh->AddEntry(MuGraphMap["PPStau"     ], LegendFromType(MuPattern).c_str()                              ,"LP");
    LEGTh->Draw();
+
 
    c1->SetLogy(true);
    SaveCanvas(c1, outpath, string("StauExclusionLog"));
    delete c1;
-
-
-
 }
 //////////////////////////////////////
 
@@ -1891,6 +2028,7 @@ double GetSignalMeanHSCPPerEvent(string InputPattern, unsigned int CutIndex, dou
    delete NEventsPassingSelection;
 
    delete InputFile;
+   //toReturn=1.0;// mk per candidate instead of per event
    return toReturn;
 }
 
@@ -1910,27 +2048,48 @@ void DrawModelLimitWithBand(string InputPattern){
    double LInt = 0;
    for(unsigned int k=0; k<modelVector.size(); k++){
       bool isNeutral = false;if(modelVector[k].find("GluinoN")!=string::npos || modelVector[k].find("StopN")!=string::npos)isNeutral = true;
+      bool skip = false;
+      bool isComb = EXCLUSIONDIR.find("COMB2016")!=string::npos;
+      
+      printf ("Model = %s\n", (modelVector[k]).c_str());
+
+      if (modelVector[k] == "") continue;
+      if (modelVector[k].find("16")!=string::npos && isComb) continue;
       if(TypeMode!=0 && isNeutral) continue;
 
       unsigned int N = modelMap[modelVector[k]].size();
-      stAllInfo Infos;double Mass[N], XSecTh[N], XSecExp[N],XSecObs[N], XSecExpUp[N],XSecExpDown[N],XSecExp2Up[N],XSecExp2Down[N];
+      stAllInfo Infos;
+      vector<double> Mass, XSecTh, XSecExp,XSecObs, XSecExpUp,XSecExpDown,XSecExp2Up,XSecExp2Down;
       for(unsigned int i=0;i<N;i++){
-         Infos = stAllInfo(InputPattern+""+SHAPESTRING+EXCLUSIONDIR+"/" + modelMap[modelVector[k]][i].Name +".txt");
-         Mass        [i]=Infos.Mass;
-         XSecTh      [i]=Infos.XSec_Th;
-         XSecObs     [i]=Infos.XSec_Obs;
-         XSecExp     [i]=Infos.XSec_Exp;
-         XSecExpUp   [i]=Infos.XSec_ExpUp;
-         XSecExpDown [i]=Infos.XSec_ExpDown;
-         XSecExp2Up  [i]=Infos.XSec_Exp2Up;
-         XSecExp2Down[i]=Infos.XSec_Exp2Down;
+         string samplePath = InputPattern+""+SHAPESTRING+EXCLUSIONDIR+"/" + modelMap[modelVector[k]][i].Name +".txt";
+	 if (isComb){
+            samplePath = cleanSampleName (samplePath);
+         }
+         Infos = stAllInfo(samplePath);
+         if (Infos.Mass < 100){
+            printf ("Point at %s not found ...\n", samplePath.c_str());
+	    skip = true;
+	    N--;
+	    continue;
+         }
+	 if (Mass.size() > 0 && Infos.Mass < Mass[Mass.size()-1]) break;
+         std::cout << samplePath << std::endl;
+         Mass        .push_back(Infos.Mass);
+         XSecTh      .push_back(Infos.XSec_Th);
+         XSecObs     .push_back(Infos.XSec_Obs);
+         XSecExp     .push_back(Infos.XSec_Exp);
+         XSecExpUp   .push_back(Infos.XSec_ExpUp);
+         XSecExpDown .push_back(Infos.XSec_ExpDown);
+         XSecExp2Up  .push_back(Infos.XSec_Exp2Up);
+         XSecExp2Down.push_back(Infos.XSec_Exp2Down);
          LInt           =std::max(LInt, Infos.LInt);
       }
-      TGraph* graphtheory  = new TGraph(N,Mass,XSecTh);
-      TGraph* graphobs     = new TGraph(N,Mass,XSecObs);
-      TGraph* graphexp     = new TGraph(N,Mass,XSecExp);
-      TCutG*  ExpErr       = GetErrorBand("ExpErr"      ,N,Mass,XSecExpDown ,XSecExpUp , PlotMinScale, PlotMaxScale);
-      TCutG*  Exp2SigmaErr = GetErrorBand("Exp2SigmaErr",N,Mass,XSecExp2Down,XSecExp2Up, PlotMinScale, PlotMaxScale);
+     // if (skip) continue;
+      TGraph* graphtheory  = new TGraph(Mass.size(),&(Mass[0]),&(XSecTh [0]));
+      TGraph* graphobs     = new TGraph(Mass.size(),&(Mass[0]),&(XSecObs[0]));
+      TGraph* graphexp     = new TGraph(Mass.size(),&(Mass[0]),&(XSecExp[0]));
+      TCutG*  ExpErr       = GetErrorBand("ExpErr"      ,Mass.size(),&(Mass[0]), &(XSecExpDown[0]),&(XSecExpUp[0]),PlotMinScale,PlotMaxScale);
+      TCutG*  Exp2SigmaErr = GetErrorBand("Exp2SigmaErr",Mass.size(),&(Mass[0]),&(XSecExp2Down[0]),&(XSecExp2Up[0]),PlotMinScale,PlotMaxScale);
 
       graphtheory->SetLineStyle(3);
       graphtheory->SetFillColor(kBlue);
@@ -1948,29 +2107,37 @@ void DrawModelLimitWithBand(string InputPattern){
       graphobs->SetMarkerStyle(23);
 
       TCanvas* c1 = new TCanvas("c1", "c1",600,600);
-      TMultiGraph* MG = new TMultiGraph();
-      MG->Add(graphexp      ,"LP");
-      MG->Add(graphobs      ,"LP");
-      MG->Add(graphtheory   ,"L");
-      MG->Draw("A");
-      Exp2SigmaErr->Draw("f");
-      ExpErr      ->Draw("f");
-      MG          ->Draw("same");
-      MG->SetTitle("");
-      MG->GetXaxis()->SetTitle("Mass (GeV)");
-      MG->GetYaxis()->SetTitle("#sigma (pb)");
-      MG->GetYaxis()->SetTitleOffset(1.70);
-      MG->GetYaxis()->SetRangeUser(PlotMinScale,PlotMaxScale);
+      TH1D* frame = new TH1D("frame", "frame", 1,50, 2650);
+      frame->GetXaxis()->SetNdivisions(505);
+      frame->SetTitle("");
+      frame->SetStats(kFALSE);
+      frame->GetXaxis()->SetTitle("Mass (GeV)");
+      frame->GetYaxis()->SetTitle("95% CL limit on #sigma (pb)");
+      frame->GetYaxis()->SetTitleOffset(1.40);
+      frame->SetMaximum(PlotMaxScale);
+      frame->SetMinimum(PlotMinScale);
+   //   frame->GetYaxis()->SetRangeUser(2e-5, 1.5e1); // JOZZE EDIT
+   frame->GetYaxis()->SetRangeUser(5e-5,1.1e1);//mk
+
+
+      frame->Draw("AXIS");
+
+
+      Exp2SigmaErr->Draw("F");
+      ExpErr      ->Draw("F");
+      graphexp->Draw("LP");
+      graphobs->Draw("LP");
+      graphtheory->Draw("L");
       DrawPreliminary(LegendFromType(InputPattern).c_str(), SQRTS, IntegratedLuminosityFromE(SQRTS));
 
-      TLegend* LEG = EXCLUSIONDIR.find("COMB")==string::npos ? new TLegend(0.45,0.58,0.65,0.90) : new TLegend(0.45,0.10,0.65,0.42);
+      TLegend* LEG = new TLegend(0.60,0.82-8*0.043,0.93,0.82);
       //TLegend* LEG = new TLegend(0.40,0.65,0.8,0.90);
       string headerstr = "95% CL Limits (";
       headerstr += LegendFromType(InputPattern) + string(")");
       LEG->SetHeader(headerstr.c_str());
       LEG->SetFillColor(0); 
       LEG->SetBorderSize(0);
-      fprintf (stderr, "k/kMax = (%u / %lu)\tN=%u out of %lu\n", k+1, modelVector.size(), N, modelMap[modelVector[k]].size());
+      fprintf (stderr, "k/kMax = (%u / %lu)\tN=%lu out of %lu\n", k+1, modelVector.size(), Mass.size(), modelMap[modelVector[k]].size());
       LEG->AddEntry(graphtheory,  modelMap[modelVector[k]][0].ModelLegend().c_str() ,"L");
       LEG->AddEntry(graphexp    , "Expected"             ,"L");
       LEG->AddEntry(ExpErr      , "Expected #pm 1#sigma" ,"F");
@@ -1980,6 +2147,7 @@ void DrawModelLimitWithBand(string InputPattern){
       c1->SetLogy(true);
 
       SaveCanvas(c1,"Results/"+SHAPESTRING+EXCLUSIONDIR+"/", string(prefix+ modelVector[k] + "ExclusionLog"));
+      delete frame;
       delete c1;
    }
 }
@@ -2053,8 +2221,8 @@ void DrawRatioBands(string InputPattern)
       TGraph* graphtheory  = new TGraph(N,Mass,XSecTh);
       TGraph* graphobs     = new TGraph(N,Mass,XSecObs);
       TGraph* graphexp     = new TGraph(N,Mass,XSecExp);
-      TCutG*  ExpErr       = GetErrorBand(Form("ExpErr%i",k)      ,N,Mass,XSecExpDown ,XSecExpUp,  0.0, 3.0);
-      TCutG*  Exp2SigmaErr = GetErrorBand(Form("Exp2SigmaErr%i",k),N,Mass,XSecExp2Down,XSecExp2Up, 0.0, 3.0);
+      TCutG*  ExpErr       = GetErrorBand(Form("ExpErr%i",k)      ,N,Mass,XSecExpDown ,XSecExpUp,  PlotMinScale, PlotMaxScale);
+      TCutG*  Exp2SigmaErr = GetErrorBand(Form("Exp2SigmaErr%i",k),N,Mass,XSecExp2Down,XSecExp2Up, PlotMinScale, PlotMaxScale);
 
       graphAtheory [k] = graphtheory;      
       graphAobs    [k] = graphobs;
@@ -2165,7 +2333,7 @@ void DrawRatioBands(string InputPattern)
 }
 
 //will run on all possible selection and try to identify which is the best one for this sample
-void Optimize(string InputPattern, string Data, string signal, bool shape, bool cutFromFile){
+void Optimize(string InputPattern, string Data, string signal, bool shape, bool cutFromFile, int* OptCutIndex){
    printf("Optimize selection for %s in %s\n",signal.c_str(), InputPattern.c_str());fflush(stdout);
 
    //get the typeMode from pattern
@@ -2177,13 +2345,15 @@ void Optimize(string InputPattern, string Data, string signal, bool shape, bool 
    //Identify the signal sample
    GetSampleDefinition(samples);
    CurrentSampleIndex        = JobIdToIndex(signal,samples); 
+   printf("CurrentSampleIndez = %d\n", CurrentSampleIndex);
    if(CurrentSampleIndex<0){  printf("There is no signal corresponding to the JobId Given\n");  return;  } 
 
-   if      (Data.find("7TeV"   )!=string::npos){SQRTS=7.0;   } //IntegratedLuminosity = IntegratedLuminosityFromE(SQRTS);
-   else if (Data.find("8TeV"   )!=string::npos){SQRTS=8.0;   } //IntegratedLuminosity = IntegratedLuminosityFromE(SQRTS);
-   else if (Data.find("13TeV15")!=string::npos){SQRTS=1315.0;} //IntegratedLuminosity = IntegratedLuminosityFromE(SQRTS);
-   else if (Data.find("13TeV16")!=string::npos){SQRTS=1316.0;} //IntegratedLuminosity = IntegratedLuminosityFromE(SQRTS);
-   else if (Data.find("13TeV"  )!=string::npos){SQRTS=13.0;  } //IntegratedLuminosity = IntegratedLuminosityFromE(SQRTS);
+   if      (Data.find("7TeV"    )!=string::npos){SQRTS=7.0;    } //IntegratedLuminosity = IntegratedLuminosityFromE(SQRTS);
+   else if (Data.find("8TeV"    )!=string::npos){SQRTS=8.0;    } //IntegratedLuminosity = IntegratedLuminosityFromE(SQRTS);
+   else if (Data.find("13TeV15" )!=string::npos){SQRTS=1315.0; } //IntegratedLuminosity = IntegratedLuminosityFromE(SQRTS);
+   else if (Data.find("13TeV16G")!=string::npos){SQRTS=13167.0;} //IntegratedLuminosity = IntegratedLuminosityFromE(SQRTS);
+   else if (Data.find("13TeV16" )!=string::npos){SQRTS=1316.0; } //IntegratedLuminosity = IntegratedLuminosityFromE(SQRTS);
+   else if (Data.find("13TeV"   )!=string::npos){SQRTS=13.0;   } //IntegratedLuminosity = IntegratedLuminosityFromE(SQRTS);
 
    //For muon only don't run on neutral samples as near zero efficiency can make jobs take very long time
    if((signal.find("Gluino")!=string::npos || signal.find("Stop")!=string::npos) && signal.find("N")!=string::npos && TypeMode==3) return;
@@ -2229,7 +2399,7 @@ void Optimize(string InputPattern, string Data, string signal, bool shape, bool 
 
    //If Take the cuts From File --> Load the actual cut index
    int OptimCutIndex = -1;  //int OptimMassWindow;
-   if(cutFromFile){
+   if(cutFromFile && OptimCutIndex < 0){ // if less than zero, read from the file, otherwise don't
       FILE* pFile = fopen("Analysis_Cuts.txt","r");
       if(!pFile){printf("Can't open %s\n","Analysis_Cuts.txt"); return;}
 
@@ -2253,11 +2423,12 @@ void Optimize(string InputPattern, string Data, string signal, bool shape, bool 
          if(TypeMode_!=TypeMode)continue; //Not reading the cut line for the right TypeMode 
 
          string signalNameWithoutEnergy = signal;
-         signalNameWithoutEnergy = ReplacePartOfString (signalNameWithoutEnergy, "_7TeV"   , "");
-         signalNameWithoutEnergy = ReplacePartOfString (signalNameWithoutEnergy, "_8TeV"   , "");
-         signalNameWithoutEnergy = ReplacePartOfString (signalNameWithoutEnergy, "_13TeV15", "");
-         signalNameWithoutEnergy = ReplacePartOfString (signalNameWithoutEnergy, "_13TeV16", "");
-         signalNameWithoutEnergy = ReplacePartOfString (signalNameWithoutEnergy, "_13TeV"  , "");
+         signalNameWithoutEnergy = ReplacePartOfString (signalNameWithoutEnergy, "_7TeV"    , "");
+         signalNameWithoutEnergy = ReplacePartOfString (signalNameWithoutEnergy, "_8TeV"    , "");
+         signalNameWithoutEnergy = ReplacePartOfString (signalNameWithoutEnergy, "_13TeV15" , "");
+         signalNameWithoutEnergy = ReplacePartOfString (signalNameWithoutEnergy, "_13TeV16G", "");
+         signalNameWithoutEnergy = ReplacePartOfString (signalNameWithoutEnergy, "_13TeV16" , "");
+         signalNameWithoutEnergy = ReplacePartOfString (signalNameWithoutEnergy, "_13TeV"   , "");
 
 //         if(signalNameWithoutEnergy.find(str7TeV)!=string::npos)signalNameWithoutEnergy.erase(signalNameWithoutEnergy.find(str7TeV), str7TeV.length());
 //         if(signalNameWithoutEnergy.find(str8TeV)!=string::npos)signalNameWithoutEnergy.erase(signalNameWithoutEnergy.find(str8TeV), string(str8TeV).length()); 
@@ -2283,8 +2454,10 @@ void Optimize(string InputPattern, string Data, string signal, bool shape, bool 
    }
 
    //normalise the signal samples to XSection * IntLuminosity
-//   double LInt  = H_Lumi->GetBinContent(1); // FIXME JOZE
-   double LInt  = IntegratedLuminosity13TeV16 - IntegratedLuminosity13TeV16PostHIP;
+   double LInt  = H_Lumi->GetBinContent(1); // FIXME JOZE
+   if (signal.find("13TeV16G")!=string::npos) LInt = IntegratedLuminosity13TeV16G; // FIXME quick and dirty patch, but shouldn't be needed if you run from step 1 - 5
+   else if (signal.find("13TeV16")!=string::npos) LInt = IntegratedLuminosity13TeV16PreG;
+//   double LInt  = IntegratedLuminosity13TeV16 - IntegratedLuminosity13TeV16PostHIP;
 //   LInt = Data.find("13TeV16")!=string::npos?IntegratedLuminosity13TeV16:IntegratedLuminosity13TeV15; // from before, but a neat trick
    double norm  = samples[CurrentSampleIndex].XSec*LInt/TotalE  ->Integral(); //normalize the samples to the actual lumi used for limits
    double normPU= samples[CurrentSampleIndex].XSec*LInt/(TotalEPU->Integral()>0?TotalEPU->Integral():TotalE->Integral());
@@ -2298,19 +2471,6 @@ void Optimize(string InputPattern, string Data, string signal, bool shape, bool 
    MassSignT     ->Scale(norm);
    MassSignPU    ->Scale(normPU);
 
-   //Compute mass range for the cut&count search
-   double Mean=-1,Width=-1;
-   if(!shape && TypeMode<=2){
-      TH1D* tmpMassSignProj = MassSign->ProjectionY("MassSignProj0",1,1);
-      Mean  = tmpMassSignProj->GetMean();
-      Width = tmpMassSignProj->GetRMS();
-      MinRange = std::max(0.0, Mean-2*Width);
-      MinRange = tmpMassSignProj->GetXaxis()->GetBinLowEdge(tmpMassSignProj->GetXaxis()->FindBin(MinRange)); //Round to a bin value to avoid counting prpoblem due to the binning. 
-      delete tmpMassSignProj;
-   }else{
-      MinRange = 0;
-   }
-
    //prepare output directory and log file
    string outpath = InputPattern + "/"+SHAPESTRING+EXCLUSIONDIR+"/";
    MakeDirectories(outpath);
@@ -2320,19 +2480,62 @@ void Optimize(string InputPattern, string Data, string signal, bool shape, bool 
       if(!pFile)printf("Can't open file : %s\n",(outpath+"/"+signal+".info").c_str());
    }
 
+   //Compute mass range for the cut&count search
    stAllInfo result;
    stAllInfo toReturn;
+   double Mean=-1,Width=-1;
+     std::cout<< " Mass0 mktest "<<OptimCutIndex<<std::endl;
+
+   if(!shape && TypeMode<=2){
+     std::cout<< " Mass1 mktest "<<OptimCutIndex<<std::endl;
+
+//     TH1D* tmpMassSignProj = MassSign->ProjectionY("MassSignProj0",1,1);
+     //mk wracamy do starych ustawien 
+     int projIndex=0;
+     if (OptimCutIndex>=0)projIndex=OptimCutIndex;
+     TH1D* tmpMassSignProj = MassSign->ProjectionY("MassSignProj0",OptimCutIndex+1,OptimCutIndex+1);
+      Mean                  = tmpMassSignProj->GetMean();
+      Width                 = tmpMassSignProj->GetRMS();
+      MinRange              = std::max(0.0, Mean-2*Width);
+     std::cout<< "----> mktest "<<OptimCutIndex<<std::endl;
+     std::cout<< "Mean "<< Mean<<
+                " Width "<< Width<<
+                " MinRange "<< MinRange<<
+                " Mean-2*Width "<< Mean-2*Width<<std::endl;
+
+      if (OptimCutIndex>=0) { // if we have an optimal cut index
+     std::cout<< "----> mktest "<<OptimCutIndex<<std::endl;
+         TH1D* MassPredTMP = ((TH2D*)MassPred)->ProjectionY("MassPredProj", OptimCutIndex+1, OptimCutIndex+1); // FIXME
+         result.NPred = MassPredTMP->Integral(MassPredTMP->GetXaxis()->FindBin(MinRange), MassPredTMP->GetXaxis()->FindBin(MaxRange)); // FIXME make sure that the mass cut has NPred > 1E-2
+         for (; result.NPred < 1e-3; MinRange -= 10)
+            result.NPred = MassPredTMP->Integral(MassPredTMP->GetXaxis()->FindBin(MinRange), MassPredTMP->GetXaxis()->FindBin(MaxRange));
+         MinRange = tmpMassSignProj->GetXaxis()->GetBinLowEdge(tmpMassSignProj->GetXaxis()->FindBin(MinRange)); //Round to a bin value to avoid counting prpoblem due to the binning. 
+         delete tmpMassSignProj; delete MassPredTMP;
+      }
+   }else{
+      MinRange = 0;
+   }
+ 
+//mk move a massCut
+   if(MinRange <70) MinRange =70;
+
+   printf ("MassCut = %.0lf, NPred = % .2e\n", MinRange, result.NPred);
+
+    // std::cout<< "----> mktest "<<OptimCutIndex<<" MassDataBins "<<MassData->GetNbinsX()<<std::endl;
+
    //loop on all possible selections and determine which is the best one
    for(int CutIndex=0;CutIndex<MassData->GetNbinsX();CutIndex++){
       //if(CutIndex>25)break; //for debugging purposes
+     //std::cout<<CutIndex<< " --1--> mktest "<<OptimCutIndex<<" MassDataBins "<<MassData->GetNbinsX()<<std::endl;
 
       //if we don't want to optimize but take instead the cuts from a file, we can skip all other cuts
       if(OptimCutIndex>=0 && CutIndex!=OptimCutIndex)continue;
+     //std::cout<<CutIndex<< " --2--> mktest "<<OptimCutIndex<<" MassDataBins "<<MassData->GetNbinsX()<<std::endl;
 
       //make sure the pT cut is high enough to get some statistic for both ABCD and mass shape
       if(HCuts_Pt ->GetBinContent(CutIndex+1) < 64 && TypeMode!=4){printf("Skip cut=%i because of too lose pT cut\n", CutIndex); continue; }
 
-      //make sure we have a reliable prediction of the number of events      
+      //make sure we have a reliable prediction of the number of events
       if(OptimCutIndex<0 && H_E->GetBinContent(CutIndex+1) >0 &&(H_A->GetBinContent(CutIndex+1)<25 ||  H_F->GetBinContent(CutIndex+1)<25 || H_G->GetBinContent(CutIndex+1)<25)){printf("Skip cut=%i because of unreliable ABCD prediction\n", CutIndex); continue;}  //Skip events where Prediction (AFG/EE) is not reliable
       if(OptimCutIndex<0 && H_E->GetBinContent(CutIndex+1)==0 && H_A->GetBinContent(CutIndex+1)<=0 && (H_C->GetBinContent(CutIndex+1)<25 || H_B->GetBinContent(CutIndex+1)<25)){printf("Skip cut=%i because of unreliable ABCD prediction\n", CutIndex); continue;}  //Skip events where Prediction (CB/A) is not reliable
       if(OptimCutIndex<0 && H_F->GetBinContent(CutIndex+1) >0 && H_A->GetBinContent(CutIndex+1)<=0 && (H_B->GetBinContent(CutIndex+1)<25 || H_H->GetBinContent(CutIndex+1)<25)){printf("Skip cut=%i because of unreliable ABCD prediction\n", CutIndex); continue;}  //Skip events where Prediction (CB/A) is not reliable
@@ -2343,22 +2546,73 @@ void Optimize(string InputPattern, string Data, string signal, bool shape, bool 
          double N_P = H_P->GetBinContent(CutIndex+1);       
          if(H_E->GetBinContent(CutIndex+1) >0 && (H_A->GetBinContent(CutIndex+1)<0.25*N_P || H_F->GetBinContent(CutIndex+1)<0.25*N_P || H_G->GetBinContent(CutIndex+1)<0.25*N_P)){printf("Skip cut=%i because of unreliable mass prediction\n", CutIndex); continue;}  //Skip events where Mass Prediction is not reliable
          if(H_E->GetBinContent(CutIndex+1)==0 && (H_C->GetBinContent(CutIndex+1)<0.25*N_P || H_B->GetBinContent(CutIndex+1)<0.25*N_P)){printf("Skip cut=%i because of unreliable mass prediction\n", CutIndex); continue;}  //Skip events where Mass Prediction is not reliable
-      }      
+      }
 
       //prepare outputs result structure
       result = toReturn;
       result.MassMean  = Mean;
       result.MassSigma = Width;
+//      if (correctMassCut && TypeMode<=2 && !shape){
+//         TH1D* tmpMassSignProj = MassSign->ProjectionY("MassSignProj0",1,1);
+//         MinRange = tmpMassSignProj->GetXaxis()->GetBinLowEdge(tmpMassSignProj->GetXaxis()->FindBin(samples[JobIdToIndex(signal,samples)].Mass*0.625));
+//      }
+//mk mechaniczna metoda ustalania ciec
+//mk I want to change massCut as 2/3 of mass for stau, and 1/3 for other samples
+      double tmpMassI =  samples[JobIdToIndex(signal,samples)].Mass; 
+      if(TypeMode<=2){
+        //if(signal.find("Stop")!=string::npos||signal.find("Gluino")!=string::npos||signal.find("Q2")!=string::npos)
+        //  MinRange = round(tmpMassI*(1./3.)/10.)*10.;
+        if(signal.find("Stop")!=string::npos) MinRange = round(tmpMassI*(1./3.)/10.)*10.;
+        if(signal.find("Gluino")!=string::npos) MinRange = round(tmpMassI*(1./3.)/10.)*10.;
+        if(signal.find("Q2")!=string::npos) MinRange = round(tmpMassI*(1./3.)/10.)*10.;
+
+        if(signal.find("GMStau")!=string::npos)if(TypeMode==0)if(signal.find("432")!=string::npos) MinRange = 280; 
+        if(signal.find("GMStau")!=string::npos)if(TypeMode==0)if(signal.find("494")!=string::npos) MinRange = 320; 
+        if(signal.find("GMStau")!=string::npos)if(TypeMode==0)if(signal.find("745")!=string::npos) MinRange = 440; 
+        if(signal.find("GMStau")!=string::npos)if(TypeMode==0)if(signal.find("871")!=string::npos) MinRange = 470; 
+        if(signal.find("GMStau")!=string::npos)if(TypeMode==0)if(signal.find("1559")!=string::npos) MinRange = 710; 
+
+
+        if(signal.find("GMStau")!=string::npos)if(TypeMode==2)if(signal.find("494")!=string::npos) MinRange = 330; 
+
+
+        if(signal.find("PPStau")!=string::npos)if(TypeMode==0)if(signal.find("557")!=string::npos) MinRange = 380;
+        if(signal.find("PPStau")!=string::npos)if(TypeMode==0)if(signal.find("651")!=string::npos) MinRange = 440;
+
+
+
+
+
+
+//mk usuwalm finetuing for staus
+/*
+        if(signal.find("GMStau")!=string::npos)if(TypeMode==0)if(signal.find("494")!=string::npos) MinRange = 300; 
+        if(signal.find("GMStau")!=string::npos)if(TypeMode==2)if(signal.find("494")!=string::npos) MinRange = 330;      
+        if(signal.find("PPStau")!=string::npos)if(TypeMode==2)if(signal.find("247")!=string::npos) MinRange = 120;    
+*/
+      }
+   if(MinRange <70) MinRange =70;
+
+
       result.MassCut   = TypeMode<=2?MinRange:0;
       result.Mass      = samples[JobIdToIndex(signal,samples)].Mass;
-      if (signal.find("Q2")!=string::npos && SQRTS==1316.0 && result.Mass > 1000/* && TypeMode==0*/){
+
+//      if (signal.find("Q2")!=string::npos && SQRTS==1316.0 && result.Mass > 1000/* && TypeMode==0*/){
 //         if      (result.Mass == 1400) result.MassCut = 300;
 //         else if (result.Mass == 1800) result.MassCut = 190;
 //         else if (result.Mass == 2200) result.MassCut =  70;
 //         else if (result.Mass == 2600) result.MassCut =  50;
-         result.MassCut = result.Mass*0.5;
-	 MinRange = result.MassCut;
-      }
+//         result.MassCut = result.Mass*0.5;
+//	 MinRange = result.MassCut;
+//      }
+//
+    std::cout<< "----> mktest 2"<<OptimCutIndex<<std::endl;
+     std::cout<<" Mass "<< result.Mass<<
+                " *NEW CUT* " <<result.MassCut << 
+                " Mean "<< Mean<<
+                " Width "<< Width<<
+                " MinRange "<< MinRange<<
+                " Mean-2*Width "<< Mean-2*Width<<std::endl;     
       result.XSec_Th   = samples[JobIdToIndex(signal,samples)].XSec;
       result.XSec_Err  = samples[JobIdToIndex(signal,samples)].XSec * 0.15;
       toReturn = result;
@@ -2407,7 +2661,11 @@ void makeDataCard(string outpath, string rootPath, string ChannelName, string Si
    if(SQRTS==8   ) LumiUnc=1.044;
    if(SQRTS==13  ) LumiUnc=1.027;
    if(SQRTS==1315) LumiUnc=1.027;
-   if(SQRTS==1316) LumiUnc=1.062; // noted from the experts, 6.2%
+   //if(SQRTS==1316) LumiUnc=1.062; // noted from the experts, 6.2%
+   if(SQRTS==1316) LumiUnc=1.025; 
+   if(SQRTS==13167) LumiUnc=1.025;
+   if(SQRTS==131677) LumiUnc=1.025;
+
 
    if(isnan(float(PredRelErr)))PredRelErr= 1.2;
 
@@ -2429,7 +2687,8 @@ void makeDataCard(string outpath, string rootPath, string ChannelName, string Si
    fprintf(pFile, "process  0 1\n");
    fprintf(pFile, "rate    %f %f\n",Sign,std::max(1E-4, Pred) );  //if Pred<1E-4 we have troubles when merging datacards
    fprintf(pFile, "-------------------------------\n");
-   fprintf(pFile, "%35s    %6s %5.3f     1.0  \n","Lumi" , "lnN", LumiUnc);
+//mk obie maja lumi unc   fprintf(pFile, "%35s    %6s %5.3f     1.0  \n","Lumi" , "lnN", LumiUnc);
+   fprintf(pFile, "%35s    %6s %5.3f     1.0\n","Lumi" , "lnN", LumiUnc);
    fprintf(pFile, "%35s    %6s -         %5.3f\n",(ChannelName+"systP").c_str(), "lnN", PredRelErr);
    fprintf(pFile, "%35s    %6s %5.3f     -    \n",(ChannelName+"systS").c_str(), "lnN", SignalUnc);
    if(!Shape){
@@ -2503,8 +2762,8 @@ void testShapeBasedAnalysis(string InputPattern, string signal){
    TH1D*  TotalEPU   = (TH1D*)GetObjectFromPath(InputFile, samples[s].Name+"/TotalEPU" );
 
    //normalise the signal samples to XSection * IntLuminosity
-//   double LInt  = H_Lumi->GetBinContent(1); // FIXME JOZE
-   double LInt  = IntegratedLuminosity13TeV16 - IntegratedLuminosity13TeV16PostHIP;
+   double LInt  = H_Lumi->GetBinContent(1); // FIXME JOZE
+//   double LInt  = IntegratedLuminosity13TeV16 - IntegratedLuminosity13TeV16PostHIP;
    double norm  = samples[CurrentSampleIndex].XSec*LInt/TotalE  ->Integral(); //normalize the samples to the actual lumi used for limits
    double normPU= samples[CurrentSampleIndex].XSec*LInt/TotalEPU->Integral();
    MassSign      ->Scale(norm);
@@ -2564,6 +2823,8 @@ bool runCombine(bool fastOptimization, bool getXsection, bool getSignificance, s
    double NSignErr, NSignPErr, NSignIErr, NSignMErr, NSignHErrUp, NSignHErrDown, NSignTErr, NSignPUErr;
    double signalsMeanHSCPPerEvent = GetSignalMeanHSCPPerEvent(InputPattern,CutIndex, MinRange, MaxRange);
 
+   printf ("signalsMeanHSCPPerEvent = %lf\n", signalsMeanHSCPPerEvent);
+   printf ("CurrentSampleIndex = %d, CutIndex = %d\n", CurrentSampleIndex, CutIndex);
    //IF 2D histograms --> we get all the information from there (and we can do shape based analysis AND/OR cut on mass)
    if(MassData->InheritsFrom("TH2")){
       //make the projection of all the 2D input histogram to get the shape for this single point
@@ -2671,7 +2932,10 @@ bool runCombine(bool fastOptimization, bool getXsection, bool getSignificance, s
    result.NPred     = NPred;
    result.NPredErr  = NPredErr;
    result.NSign     = NSign;
-   NSign /= (result.XSec_Th*result.LInt); //normalize signal to 1pb
+   printf ("NSign = %lf = %lf/(%.2e*%.4lf)\n", NSign/(result.XSec_Th*result.LInt), NSign, result.XSec_Th, result.LInt);
+   NSign/= (result.XSec_Th*XsecUnit); //mklim
+  //mk  NSign /= (result.XSec_Th*result.LInt); //normalize signal to 1pb
+//   NPred /= (result.XSec_Th*result.LInt); //normalize signal to 1pb
    double SignalScaleFactor = 1.0;
    for(unsigned int i=0;i<20 && NSign<1e-1; i++){SignalScaleFactor*=10.0;  NSign*=10.0;}  
    if(NPred<0.001) {NPred=0.001; NPredErr=NPred;}
@@ -2783,6 +3047,8 @@ bool runCombine(bool fastOptimization, bool getXsection, bool getSignificance, s
    char TypeStr[255]; sprintf(TypeStr,"Type%i", TypeMode);
    string JobName = TypeStr+signal;
    string datacardPath = "/tmp/shape_"+JobName+".dat";
+
+std::cout<<"----> input to datacards  NData " <<NData<< "  NPred "<< NPred<< "  Err "<<1.0+(Shape?RescaleError:NPredErr/NPred)<<"  NSign "<< NSign<< "  Err "<<1.0+fabs(EffErr/Eff)<< "  SignalUnc "<< SignalUnc<<std::endl; 
    makeDataCard(datacardPath,string("shape_")+JobName+".root", TypeStr,signal, NData, NPred, 1.0+(Shape?RescaleError:NPredErr/NPred), NSign, 1.0+fabs(EffErr/Eff), SignalUnc, Shape);
 
    char massStr[255]; sprintf(massStr,"%.0f",result.Mass);
@@ -2828,14 +3094,14 @@ bool runCombine(bool fastOptimization, bool getXsection, bool getSignificance, s
       //If very low background range too small, set limit at 0.001.  Only affects scanning range not final limit
       if(NPred<0.001) NPred=0.001;
       string CodeToExecute = "cd /tmp/;";
-      CodeToExecute += "combine -M HybridNew  -H ProfileLikelihood -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat > shape_" + JobName + ".log;";
+      CodeToExecute += "combine -M HybridNew  -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat > shape_" + JobName + ".log;";
       CodeToExecute += "cd $OLDPWD; cp /tmp/shape_" + JobName + ".* " + InputPattern+"/"+SHAPESTRING+EXCLUSIONDIR+"/." + ";";
       CodeToExecute += "cd /tmp/;";
-      CodeToExecute += "combine -M HybridNew  -H ProfileLikelihood -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.500 >> shape_" + JobName + "Exp.log;";
-      CodeToExecute += "combine -M HybridNew  -H ProfileLikelihood -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.160 >> shape_" + JobName + "Exp.log;";
-      CodeToExecute += "combine -M HybridNew  -H ProfileLikelihood -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.840 >> shape_" + JobName + "Exp.log;";
-      CodeToExecute += "combine -M HybridNew  -H ProfileLikelihood -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.025 >> shape_" + JobName + "Exp.log;";
-      CodeToExecute += "combine -M HybridNew  -H ProfileLikelihood -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.975 >> shape_" + JobName + "Exp.log;";
+      CodeToExecute += "combine -M HybridNew -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.500 >> shape_" + JobName + "Exp.log;";
+      CodeToExecute += "combine -M HybridNew -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.160 >> shape_" + JobName + "Exp.log;";
+      CodeToExecute += "combine -M HybridNew -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.840 >> shape_" + JobName + "Exp.log;";
+      CodeToExecute += "combine -M HybridNew -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.025 >> shape_" + JobName + "Exp.log;";
+      CodeToExecute += "combine -M HybridNew -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.975 >> shape_" + JobName + "Exp.log;";
       CodeToExecute += "hadd -f higgsCombine"+JobName+".HybridNew.mH"+massStr+".Merged.root higgsCombine"+JobName+".HybridNew.mH"+massStr+"*.root";
       system(CodeToExecute.c_str());
 
@@ -2852,6 +3118,7 @@ bool runCombine(bool fastOptimization, bool getXsection, bool getSignificance, s
       tree->GetBranch("quantileExpected")->SetAddress(&TquantExp);
       for(int ientry=0;ientry<tree->GetEntriesFast();ientry++){
         tree->GetEntry(ientry);
+/*//mklim
         printf("Quantile=%f --> Limit = %f\n", TquantExp, Tlimit*(SignalScaleFactor/result.LInt));
         if(TquantExp==0.025f){ result.XSec_Exp2Down = Tlimit*(SignalScaleFactor/result.LInt);
         }else if(TquantExp==0.160f){ result.XSec_ExpDown  = Tlimit*(SignalScaleFactor/result.LInt);
@@ -2859,6 +3126,16 @@ bool runCombine(bool fastOptimization, bool getXsection, bool getSignificance, s
         }else if(TquantExp==0.840f){ result.XSec_ExpUp    = Tlimit*(SignalScaleFactor/result.LInt);
         }else if(TquantExp==0.975f){ result.XSec_Exp2Up   = Tlimit*(SignalScaleFactor/result.LInt);
         }else if(TquantExp==-1    ){ result.XSec_Obs      = Tlimit*(SignalScaleFactor/result.LInt);
+
+*/
+        printf("Quantile=%f --> Limit = %f, Tlimit=%f  fac=%f  XsecUnit=%f\n", TquantExp, Tlimit*(SignalScaleFactor/(XsecUnit)),Tlimit,SignalScaleFactor,XsecUnit);
+        printf("Quantile=%f --> Limit = %f\n", TquantExp, Tlimit*(SignalScaleFactor/XsecUnit));
+        if(TquantExp==0.025f){ result.XSec_Exp2Down = Tlimit*(SignalScaleFactor/XsecUnit);
+        }else if(TquantExp==0.160f){ result.XSec_ExpDown  = Tlimit*(SignalScaleFactor/XsecUnit);
+        }else if(TquantExp==0.500f){ result.XSec_Exp      = Tlimit*(SignalScaleFactor/XsecUnit);
+        }else if(TquantExp==0.840f){ result.XSec_ExpUp    = Tlimit*(SignalScaleFactor/XsecUnit);
+        }else if(TquantExp==0.975f){ result.XSec_Exp2Up   = Tlimit*(SignalScaleFactor/XsecUnit);
+        }else if(TquantExp==-1    ){ result.XSec_Obs      = Tlimit*(SignalScaleFactor/XsecUnit);
         }else{printf("Quantil %f unused by the analysis --> check the code\n", TquantExp);
         }
       }
@@ -2990,11 +3267,15 @@ bool runCombine(bool fastOptimization, bool getXsection, bool getSignificance, s
 }
 
 
-bool Combine(string InputPattern, string signal1, string signal2){
+bool Combine(string InputPattern, string signal1, string signal2, int* OptCutIndex){
 //   CurrentSampleIndex        = JobIdToIndex(signal, samples); if(CurrentSampleIndex<0){  printf("There is no signal corresponding to the JobId Given\n");  return false;  }
 //   int s = CurrentSampleIndex;
-  int TypeMode = TypeFromPattern(InputPattern);
+   GetSampleDefinition(samples);
+   int SampleIndex1 = JobIdToIndex(signal1,samples),
+       SampleIndex2 = JobIdToIndex(signal2,samples);
 
+   int TypeMode = TypeFromPattern(InputPattern);
+   
    string outpath = InputPattern + "/"+SHAPESTRING+EXCLUSIONDIR+"/";
    MakeDirectories(outpath);
    string JobName;
@@ -3002,16 +3283,24 @@ bool Combine(string InputPattern, string signal1, string signal2){
    stAllInfo result12;
    stAllInfo result;
    string signal;
+   string EXCLUSION1;
+   string EXCLUSION2;
+   string signal11;
+   string signal12;
    string CodeToExecute = "combineCards.py ";
    char massStr[255];
-
-   if (signal1.find("13TeV")==string::npos && signal2.find("13TeV")==string::npos){
+   
+   if (signal1.find("7TeV")!=string::npos && signal2.find("8TeV")!=string::npos){
       //Get Optimal cut from sample11
-      result11 =  stAllInfo(InputPattern+"/EXCLUSION7TeV/"+signal1+".txt");
+      EXCLUSION1 = "EXCLUSION7TeV";
+      EXCLUSION2 = "EXCLUSION8TeV";
+      signal11   = signal1;
+      signal12   = signal2;
+      result11   = stAllInfo(InputPattern+EXCLUSION1+signal1+".txt");
       //Get Optimal cut from sample12
-      result12 =  stAllInfo(InputPattern+"/EXCLUSION8TeV/"+signal2+".txt");
+      result12 =  stAllInfo(InputPattern+EXCLUSION2+signal2+".txt");
 
-      result = result12;
+      result = stAllInfo(InputPattern+EXCLUSION2+signal2+".txt");
       sprintf(massStr,"%.0f",result.Mass);
 
       signal = signal1;
@@ -3022,65 +3311,230 @@ bool Combine(string InputPattern, string signal1, string signal2){
       FILE* pFileTmp = NULL;
 
       bool is7TeVPresent = true;
-      pFileTmp = fopen((InputPattern+"/EXCLUSION7TeV/shape_"+(TypeStr+signal1)+".dat").c_str(), "r");
+      pFileTmp = fopen((InputPattern+EXCLUSION1+"shape_"+(TypeStr+signal1)+".dat").c_str(), "r");
       if(!pFileTmp){is7TeVPresent=false;}else{fclose(pFileTmp);}
       if(TypeMode==3) is7TeVPresent=false;
 
       bool is8TeVPresent = true;
-      pFileTmp = fopen((InputPattern+"/EXCLUSION8TeV/shape_"+(TypeStr+signal2)+".dat").c_str(), "r");
+      pFileTmp = fopen((InputPattern+EXCLUSION2+"shape_"+(TypeStr+signal2)+".dat").c_str(), "r");
       if(!pFileTmp){is8TeVPresent=false;}else{fclose(pFileTmp);}
 
 
-      if(is7TeVPresent)CodeToExecute+="   " + InputPattern+"/EXCLUSION7TeV/shape_"+(TypeStr+signal1)+".dat ";
-      if(is8TeVPresent)CodeToExecute+="   " + InputPattern+"/EXCLUSION8TeV/shape_"+(TypeStr+signal2)+".dat ";
+      if(is7TeVPresent)CodeToExecute+="   " + InputPattern+EXCLUSION1+"shape_"+(TypeStr+signal1)+".dat ";
+      if(is8TeVPresent)CodeToExecute+="   " + InputPattern+EXCLUSION2+"shape_"+(TypeStr+signal2)+".dat ";
    }
 
-   else {
+   // COMBINE2016
+   else if (signal1.find("W13TeV16")!=string::npos && signal2.find("W13TeV16G")!=string::npos){
       size_t toBreak1   = signal1.find("W13TeV");
       size_t toBreak2   = signal2.find("W13TeV");
-      string signal11   = signal1.substr(0, toBreak1);
-      string signal12   = signal2.substr(0, toBreak2);
-      string EXCLUSION1 = "/EXCLUSION"+signal1.substr(toBreak1+1, signal1.size()-toBreak1-1);
-      string EXCLUSION2 = "/EXCLUSION"+signal2.substr(toBreak2+1, signal2.size()-toBreak2-1);
+      EXCLUSION1 = "/EXCLUSION"+signal1.substr(toBreak1+1, signal1.size()-toBreak1-1);
+      EXCLUSION2 = "/EXCLUSION"+signal2.substr(toBreak2+1, signal2.size()-toBreak2-1);
+      signal11   = signal1.substr(0, toBreak1);
+      signal12   = signal2.substr(0, toBreak2);
+      SampleIndex1 = JobIdToIndex(ReplacePartOfString(signal11, "13TeV", "13TeV16"), samples);
+      SampleIndex2 = JobIdToIndex(ReplacePartOfString(signal12, "13TeV16", "13TeV16G"), samples);
       //Get Optimal cut from sample11
-      result11 =  stAllInfo(InputPattern+EXCLUSION1+"/"+signal11+".txt");
+      std::cout << "Loading " << InputPattern+EXCLUSION1+"/"+ReplacePartOfString(signal11,"13TeV", "13TeV16")+".txt" << std::endl;
+      result11 =  stAllInfo(InputPattern+EXCLUSION1+"/"+ReplacePartOfString(signal11,"13TeV", "13TeV16")+".txt");
       //Get Optimal cut from sample22
-      result12 =  stAllInfo(InputPattern+EXCLUSION2+"/"+signal12+".txt");
+      std::cout << "Loading " << InputPattern+EXCLUSION2+"/"+ReplacePartOfString(signal12,"13TeV16", "13TeV16G")+".txt" << std::endl;
+      result12 =  stAllInfo(InputPattern+EXCLUSION2+"/"+ReplacePartOfString(signal12, "13TeV16", "13TeV16G")+".txt");
       char TypeStr[100] ;sprintf(TypeStr,"Type%i", TypeMode);
       JobName = TypeStr+signal11;
 
-      result = result12;
+      result =  stAllInfo(InputPattern+EXCLUSION2+"/"+ReplacePartOfString(signal12, "13TeV16", "13TeV16G")+".txt");
       sprintf(massStr,"%.0f",result.Mass);
 
+
       signal = signal11;
-      signal = ReplacePartOfString(signal, "_13TeV16", "");
-      signal = ReplacePartOfString(signal, "_13TeV15", "");
-      signal = ReplacePartOfString(signal, "_13TeV"  , "");
+      signal = ReplacePartOfString(signal, "_13TeV16G", "");
+      signal = ReplacePartOfString(signal, "_13TeV16" , "");
+      signal = ReplacePartOfString(signal, "_13TeV15" , "");
+      signal = ReplacePartOfString(signal, "_13TeV"   , "");
 
       FILE* pFileTmp = NULL;
 
-      bool is2015Present = true;
-      pFileTmp = fopen((InputPattern+EXCLUSION1+"/shape_"+(TypeStr+signal11)+".dat").c_str(), "r");
-      if(!pFileTmp){is2015Present=false;}else{fclose(pFileTmp);}
-      if(TypeMode!=0 && TypeMode!=2) is2015Present=false;
-
       bool is2016Present = true;
-      pFileTmp = fopen((InputPattern+EXCLUSION2+"/shape_"+(TypeStr+signal12)+".dat").c_str(), "r");
+      printf("Accessing the file %s\n", (InputPattern+EXCLUSION1+"/shape_"+(TypeStr+ReplacePartOfString(signal11, "13TeV", "13TeV16"))+".dat").c_str());
+      pFileTmp = fopen((InputPattern+EXCLUSION1+"/shape_"+(TypeStr+ReplacePartOfString(signal11, "13TeV", "13TeV16"))+".dat").c_str(), "r");
       if(!pFileTmp){is2016Present=false;}else{fclose(pFileTmp);}
+//      if(TypeMode!=0 && TypeMode!=2) is2016Present=false;
+
+      bool is2016GPresent = true;
+      printf("Accessing the file %s\n", (InputPattern+EXCLUSION2+"/shape_"+(TypeStr+ReplacePartOfString(signal12, "13TeV16", "13TeV16G"))+".dat").c_str());
+      pFileTmp = fopen((InputPattern+EXCLUSION2+"/shape_"+(TypeStr+ReplacePartOfString(signal12, "13TeV16", "13TeV16G"))+".dat").c_str(), "r");
+      if(!pFileTmp){is2016GPresent=false;}else{fclose(pFileTmp);}
 
 
-      if(is2015Present)CodeToExecute+="   " + InputPattern+EXCLUSION1+"/shape_"+(TypeStr+signal11)+".dat ";
-      if(is2016Present)CodeToExecute+="   " + InputPattern+EXCLUSION2+"/shape_"+(TypeStr+signal12)+".dat ";
+      if(is2016Present)CodeToExecute+="   " + InputPattern+EXCLUSION1+"/shape_"+(TypeStr+ReplacePartOfString(signal11, "13TeV", "13TeV16"))+".dat ";
+      if(is2016GPresent){
+         CodeToExecute+="   " + InputPattern+EXCLUSION2+"/shape_"+(TypeStr+ReplacePartOfString(signal12,"13TeV16","13TeV16G"))+".dat ";
+//	 string PreExecuteCode = string("sed -i \'s:13TeV16G:13TeV16:g\' ")+InputPattern+EXCLUSION2+"/shape_"+(TypeStr+ReplacePartOfString(signal12,"13TeV16","13TeV16G"))+".dat";
+//	 printf ("Renaming the signal in the datacard:\n%s\n", PreExecuteCode.c_str());
+//	 system(PreExecuteCode.c_str());
+      }
+   }
+   if (result11.MassCut != result12.MassCut/* && OptCutIndex != nullptr*/ && (SampleIndex1 < 0 || SampleIndex2 < 0)){printf("These two signals are not listed!\n");return false;} 
+   else if (result11.MassCut != result12.MassCut && SampleIndex1 >= 0 && SampleIndex2 >=0 && SampleIndex1 != SampleIndex2){
+      string analysisPath = "/home/ucl/cp3/jzobec/Run2HSCP16/Run2HSCP16_v4/CMSSW_8_0_30/src/SUSYBSMAnalysis/HSCP/test/AnalysisCode";
+      FILE* fdebug = fopen("DifferentMassCuts.txt", "a");
+      fprintf (fdebug, "%s\t%s\n", (ReplacePartOfString(signal12, "13TeV16", "13TeV16G")+".txt").c_str(), (ReplacePartOfString(signal11, "13TeV", "13TeV16")+".txt").c_str());
+      fclose(fdebug);
+
+      /* take the smaller of the two mass cuts */
+      bool SecondIsGreater = (result11.MassCut<result12.MassCut);
+      double MassCut2 = SecondIsGreater?result11.MassCut:result12.MassCut;
+
+      // runCombine must be rerun for a different mass cut for the less permissive datacard
+      // TOFIXCOMBINE
+      string Data = SecondIsGreater?ReplacePartOfString(signal12,"13TeV16","13TeV16G"):ReplacePartOfString(signal11, "13TeV", "13TeV16");
+      string tmp = Data;
+      double SQRTS_OLD = SQRTS;
+      if (Data.find("7TeV")!=string::npos) {tmp = "7TeV"; SQRTS = 7.0;}
+      else if (Data.find("8TeV")!=string::npos) {tmp = "8TeV"; SQRTS = 8.0;}
+      else if (Data.find("13TeV16G")!=string::npos) {tmp = "13TeV16G"; SQRTS = 13167.0;}
+      else if (Data.find("13TeV16")!=string::npos) {tmp = "13TeV16"; SQRTS = 1316.0;}
+      else if (Data.find("13TeV")!=string::npos) {tmp = "13TeV"; SQRTS = 13.0;}
+      Data = "Data"+tmp;
+
+      printf ("DATA = %s\n", Data.c_str());
+      printf ("Rerunning %s (sample index = %d) to change its mass cut from %.0lf to %.0lf ...\n", SecondIsGreater?ReplacePartOfString(signal12,"13TeV16", "13TeV16G").c_str():ReplacePartOfString(signal11,"13TeV","13TeV16").c_str(), SecondIsGreater?SampleIndex2:SampleIndex1, SecondIsGreater?result12.MassCut:result11.MassCut, MassCut2);
+      if (SecondIsGreater) result12.MassCut = result11.MassCut;
+      else result11.MassCut = result12.MassCut;
+      CurrentSampleIndex = SecondIsGreater?SampleIndex2:SampleIndex1;
+      MinRange = MassCut2;
+      result.MassCut      = MinRange;
+/*
+      printf("2016G Data ...\n");
+      Data = "Data13TeV16G"; SQRTS=13167.0; EXCLUSIONDIR=EXCLUSIONDIR_SAVE+"13TeV16G";
+      Optimize(InputPattern, Data, ReplacePartOfString(signal, "13TeV16", "13TeV"), SHAPESTRING!="", true);
+*/
+      TFile*InputFile     = new TFile((InputPattern + "Histos.root").c_str());
+      TH1D* H_P           = (TH1D*)GetObjectFromPath(InputFile, Data+"/H_P");
+      TH1D* H_D           = (TH1D*)GetObjectFromPath(InputFile, Data+"/H_D");
+      TH2D* MassData      = (TH2D*)GetObjectFromPath(InputFile, Data+"/Mass");
+      TH2D* MassPred      = (TH2D*)GetObjectFromPath(InputFile, Data+"/Pred_Mass");
+      TH2D* MassSign      = (TH2D*)GetObjectFromPath(InputFile, samples[CurrentSampleIndex].Name + "/Mass" );
+      if(!MassSign){printf("The sample %s is not present in the root file, returns\n", ReplacePartOfString(signal11, "13TeV", "13TeV16").c_str());return false;}
+      TH2D* MassSignP     = (TH2D*)GetObjectFromPath(InputFile, samples[CurrentSampleIndex].Name + "/Mass_SystP"    );
+      TH2D* MassSignI     = (TH2D*)GetObjectFromPath(InputFile, samples[CurrentSampleIndex].Name + "/Mass_SystI"    );
+      TH2D* MassSignM     = (TH2D*)GetObjectFromPath(InputFile, samples[CurrentSampleIndex].Name + "/Mass_SystM"    );
+      TH2D* MassSignHUp   = (TH2D*)GetObjectFromPath(InputFile, samples[CurrentSampleIndex].Name + "/Mass_SystHUp"  );
+      TH2D* MassSignHDown = (TH2D*)GetObjectFromPath(InputFile, samples[CurrentSampleIndex].Name + "/Mass_SystHDown");
+      TH2D* MassSignT     = (TH2D*)GetObjectFromPath(InputFile, samples[CurrentSampleIndex].Name + "/Mass_SystT"    );
+      TH2D* MassSignPU    = (TH2D*)GetObjectFromPath(InputFile, samples[CurrentSampleIndex].Name + "/Mass_SystPU"   );
+      TH1D* TotalE        = (TH1D*)GetObjectFromPath(InputFile, samples[CurrentSampleIndex].Name+"/TotalE" );
+      TH1D* TotalEPU      = (TH1D*)GetObjectFromPath(InputFile, samples[CurrentSampleIndex].Name+"/TotalEPU" );
+
+      double norm  = samples[CurrentSampleIndex].XSec*(SecondIsGreater?result12.LInt:result11.LInt)/TotalE  ->Integral(); //normalize the samples to the actual lumi used for limits
+      double normPU= samples[CurrentSampleIndex].XSec*(SecondIsGreater?result12.LInt:result11.LInt)/(TotalEPU->Integral()>0?TotalEPU->Integral():TotalE->Integral());
+
+      MassSign      ->Scale(norm);
+      MassSignP     ->Scale(norm);
+      MassSignI     ->Scale(norm);
+      MassSignM     ->Scale(norm);
+      MassSignHUp   ->Scale(norm);
+      MassSignHDown ->Scale(norm);
+      MassSignT     ->Scale(norm);
+      MassSignPU    ->Scale(normPU);
+
+
+
+      // so far the shape analysis is disabled here! change the lines here to change it
+      bool shape = false;
+      string signalToReturn = SecondIsGreater?ReplacePartOfString(signal12,"13TeV16", "13TeV16G"):ReplacePartOfString(signal11,"13TeV","13TeV16");
+      if(TypeMode<=2){runCombine(false, true, true, InputPattern, signalToReturn, SecondIsGreater?result12.Index:result11.Index, false, shape, SecondIsGreater?result12:result11, MassData, MassPred, MassSign, MassSignP, MassSignI, MassSignM, MassSignHUp, MassSignHDown, MassSignT, MassSignPU);
+      }else          {runCombine(false, true, true, InputPattern, signalToReturn, SecondIsGreater?result12.Index:result11.Index , false, shape, SecondIsGreater?result12:result11, H_D, H_P, MassSign, MassSignP, MassSignI, MassSignM, MassSignHUp, MassSignHDown, MassSignT, MassSignPU);
+      }
+     
+      //overwrite the last result and update it to the new mass cut
+      printf ("New NPred = % .2e\n", SecondIsGreater?result12.NPred:result11.NPred);
+      string OverwritePath = InputPattern+(SecondIsGreater?EXCLUSION2:EXCLUSION1)+"/"+(SecondIsGreater?ReplacePartOfString(signal12,"13TeV16","13TeV16G"):ReplacePartOfString(signal11,"13TeV", "13TeV16"))+".txt";
+      printf ("Results written in %s.\n", OverwritePath.c_str());
+      if (SecondIsGreater)
+         result12.Save(OverwritePath);
+      if (!SecondIsGreater)
+         result11.Save(OverwritePath);
+      if (SQRTS != SQRTS_OLD) SQRTS = SQRTS_OLD;
+
+      delete H_P           ;
+      delete H_D           ;
+      delete MassData      ;
+      delete MassPred      ;
+      delete MassSign      ;
+      delete MassSignP     ;
+      delete MassSignI     ;
+      delete MassSignM     ;
+      delete MassSignHUp   ;
+      delete MassSignHDown ;
+      delete MassSignT     ;
+      delete MassSignPU    ;
+      delete TotalE        ;
+      delete TotalEPU      ;
+      delete InputFile;
    }
 
+/* mklim 
+   double NSign1 = result11.NSign/(result11.XSec_Th*result11.LInt),
+          NSign2 = result12.NSign/(result12.XSec_Th*result12.LInt),
+          SignalScaleFactor1 = 1.0,
+          SignalScaleFactor2 = 1.0,
+	  SignalScaleFactor;
+*/
+
+   double NSign1 = result11.NSign/(result11.XSec_Th*XsecUnit),
+          NSign2 = result12.NSign/(result12.XSec_Th*XsecUnit),
+          SignalScaleFactor1 = 1.0,
+          SignalScaleFactor2 = 1.0,
+          SignalScaleFactor;
 
 
-   CodeToExecute+=" > " + outpath+"shape_"+JobName+".dat ";
+
+   for(unsigned int i=0;i<20 && NSign1<1e-1; i++) {SignalScaleFactor1*=10.0; NSign1*=10.0;}
+   for(unsigned int i=0;i<20 && NSign2<1e-1; i++) {SignalScaleFactor2*=10.0; NSign2*=10.0;}
+   if (SignalScaleFactor1 != SignalScaleFactor2){
+      printf ("Warning! SignalScaleFactor1 = %.2e is different from SignalScaleFactor2 = %.2e\n", SignalScaleFactor1, SignalScaleFactor2);
+      printf ("Rescaling the signal rates to the same level in both datacards before combining!\n");
+      double NPred1        = (result11.NPred>=0.001)?result11.NPred:0.001,
+	     NPredErrRatio = (result11.NPred>=0.001)?(result11.NPredErr/result11.NPred):0.001,
+             EffErrRatio   = result11.EffE/result11.Eff,
+             SignalUnc     = result11.TotalUnc+1,
+             NData1        = result11.NData;
+
+      string datacardPath1 = InputPattern+EXCLUSION1+string("/shape_Type")+((char) (48 + TypeMode))+(ReplacePartOfString(signal11, "13TeV", "13TeV16"))+".dat ",
+             datacardPath2 = InputPattern+EXCLUSION2+string("/shape_Type")+((char) (48 + TypeMode))+(ReplacePartOfString(signal12,"13TeV16","13TeV16G"))+".dat";
+      bool SecondIsGreater = (SignalScaleFactor1<SignalScaleFactor2);
+      double ratio    = SignalScaleFactor2/SignalScaleFactor1;
+      if (!SecondIsGreater) {
+         datacardPath1         = datacardPath2;
+         NSign1                = NSign2;
+         NData1                = result12.NData;
+         NPred1                = (result12.NPred>=0.001)?result12.NPred:0.001;
+	 NPredErrRatio         = (result12.NPred>=0.001)?(result12.NPredErr/result12.NPred):0.001;
+         EffErrRatio           = result12.EffE/result12.Eff,
+         SignalUnc             = result12.TotalUnc+1;
+	 SignalScaleFactor     = SignalScaleFactor1;
+	 signal11              = signal12;
+	 ratio                 = SignalScaleFactor1/SignalScaleFactor2;
+      } else SignalScaleFactor = SignalScaleFactor2;
+
+      std::cout << "Readjusting the rate in " + datacardPath1 + " from " << NSign1 << " to " << ratio*NSign1 << std::endl;
+      // new datacard for this case -> the combined datacard emerging from these two datacards will be correct
+      makeDataCard(datacardPath1,string("shape_")+JobName+".root", string("Type")+((char) (48 + TypeMode)), signal11, NData1, NPred1, 1.0+NPredErrRatio, NSign1*ratio, 1.0+fabs(EffErrRatio), SignalUnc, false);
+
+      printf ("Datacard %s has been rewritten!\n", datacardPath1.c_str());
+   } else SignalScaleFactor = SignalScaleFactor1;
+
+
+   CodeToExecute+=" > " + outpath+"shape_"+JobName+".dat";
 
    system(CodeToExecute.c_str());   
    printf("%s \n",CodeToExecute.c_str());
 
-   result.XSec_Th = 1.0;
+   printf ("Signal scale factor = %.2e\n", SignalScaleFactor);
+
+//   result.XSec_Th = 1.0; // FIXME NOT ADEQUATE FOR COMBINING SAMPLES AT THE SAME ENERGY! -- take whatever is in any 13TeV sample
    //Muon only uses just 2012
    if(TypeMode==3 && signal1.find("7TeV")!=string::npos && signal2.find("8TeV")!=string::npos) {
      result.XSec_Obs=result12.XSec_Obs/result12.XSec_Th;
@@ -3100,16 +3554,21 @@ bool Combine(string InputPattern, string signal1, string signal2){
    result.NPredErr = sqrt(pow(result11.NPredErr,2) + pow(result12.NPredErr,2));
 
    //compute combined significance
-   CodeToExecute = "cp " + outpath+"shape_"+JobName+".dat /tmp/.;";   
-   system(CodeToExecute.c_str());
-   result.Significance = computeSignificance(string("shape_")+JobName+".dat", false, signal, massStr, 1.0);
-   printf("Combined Significance = %f (%s)\n", result.Significance, (outpath+"shape_"+JobName+".dat").c_str());
-
    double NPred = result.NPred;
    double NSign = result.NSign;
-   double SignalScaleFactor = 1.0;
-   for(unsigned int i=0;i<20 && NSign<1e-1; i++){SignalScaleFactor*=10.0;  NSign*=10.0;}
+   if (SignalScaleFactor1 != SignalScaleFactor2){
+      printf ("\nMaking a note in ListOfMismatches.log!\n");
+      string analysisPath = "/home/ucl/cp3/jzobec/Run2HSCP16/Run2HSCP16_v4/CMSSW_8_0_30/src/SUSYBSMAnalysis/HSCP/test/AnalysisCode";
+      FILE * fdebug = fopen ((analysisPath+"/ListOfMismatches.log").c_str(), "a");
+      fprintf (fdebug, "Type %d Signal %s does not match!\n", TypeMode, signal.c_str());
+      fclose(fdebug);
+   }
 
+   CodeToExecute = "cp " + outpath+"shape_"+JobName+".dat /tmp/.;";   
+   system(CodeToExecute.c_str());
+   result.Significance = computeSignificance(outpath+"shape_"+JobName+".dat", false, signal, massStr, 1.0);
+   printf("Combined Significance = %f (%s)\n", result.Significance, (outpath+"shape_"+JobName+".dat").c_str());
+ 
    //ALL CODE BELOW IS A BIT DIFFERENT THAN THE ONE USED IN runCombined, BECAUSE HERE WE KEEP THE RESULTS ON LIMIT IN TERMS OF SIGNAL STRENGTH (r=SigmaObs/SigmaTH)
    if(true){
       //prepare and run the script that will run the external "combine" tool from the Higgs group
@@ -3117,14 +3576,14 @@ bool Combine(string InputPattern, string signal1, string signal2){
             if(NPred<0.001) NPred=0.001;
       string CodeToExecute = "cp " + outpath+"shape_"+JobName+".dat /tmp/.;";
       CodeToExecute += "cd /tmp/;";
-      CodeToExecute += "combine -M HybridNew  -H ProfileLikelihood -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat > shape_" + JobName + ".log;";
+      CodeToExecute += "combine -M HybridNew  -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat > shape_" + JobName + ".log;";
       CodeToExecute += "cd $OLDPWD; cp /tmp/shape_" + JobName + ".* " + InputPattern+"/"+SHAPESTRING+EXCLUSIONDIR+"/." + ";";
       CodeToExecute += "cd /tmp/;";
-      CodeToExecute += "combine -M HybridNew  -H ProfileLikelihood -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.500 >> shape_" + JobName + "Exp.log;";
-      CodeToExecute += "combine -M HybridNew  -H ProfileLikelihood -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.160 >> shape_" + JobName + "Exp.log;";
-      CodeToExecute += "combine -M HybridNew  -H ProfileLikelihood -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.840 >> shape_" + JobName + "Exp.log;";
-      CodeToExecute += "combine -M HybridNew  -H ProfileLikelihood -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.025 >> shape_" + JobName + "Exp.log;";
-      CodeToExecute += "combine -M HybridNew  -H ProfileLikelihood -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.975 >> shape_" + JobName + "Exp.log;";
+      CodeToExecute += "combine -M HybridNew  -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.500 >> shape_" + JobName + "Exp.log;";
+      CodeToExecute += "combine -M HybridNew  -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.160 >> shape_" + JobName + "Exp.log;";
+      CodeToExecute += "combine -M HybridNew  -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.840 >> shape_" + JobName + "Exp.log;";
+      CodeToExecute += "combine -M HybridNew  -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.025 >> shape_" + JobName + "Exp.log;";
+      CodeToExecute += "combine -M HybridNew  -n " + JobName + " -m " + massStr + " shape_" + JobName+".dat --expectedFromGrid 0.975 >> shape_" + JobName + "Exp.log;";
       CodeToExecute += "hadd -f higgsCombine"+JobName+".HybridNew.mH"+massStr+".Merged.root higgsCombine"+JobName+".HybridNew.mH"+massStr+"*.root";
       system(CodeToExecute.c_str());
 
@@ -3142,12 +3601,25 @@ bool Combine(string InputPattern, string signal1, string signal2){
       tree->GetBranch("quantileExpected")->SetAddress(&TquantExp);
       for(int ientry=0;ientry<tree->GetEntriesFast();ientry++){
         tree->GetEntry(ientry);
-        if(TquantExp==0.025f){ result.XSec_Exp2Down = Tlimit*SignalScaleFactor;
-        }else if(TquantExp==0.160f){ result.XSec_ExpDown  = Tlimit*SignalScaleFactor;
-        }else if(TquantExp==0.500f){ result.XSec_Exp      = Tlimit*SignalScaleFactor;
-        }else if(TquantExp==0.840f){ result.XSec_ExpUp    = Tlimit*SignalScaleFactor;
-        }else if(TquantExp==0.975f){ result.XSec_Exp2Up   = Tlimit*SignalScaleFactor;
-        }else if(TquantExp==-1    ){ result.XSec_Obs      = Tlimit*SignalScaleFactor;
+//Limity z Hybidnew powinny byc liczone w stosumnku do sredniej lumi, a nie sumy
+/* mklim
+        printf("Quantile=%f --> Limit = %f\n", TquantExp, Tlimit*(SignalScaleFactor/(result.LInt/2.0)));
+        if(TquantExp==0.025f){ result.XSec_Exp2Down = Tlimit*(SignalScaleFactor/(result.LInt/2.0)); // FIXME jozze -- had to rescale with LInt, or limits are wrong
+        }else if(TquantExp==0.160f){ result.XSec_ExpDown  = Tlimit*(SignalScaleFactor/(result.LInt/2.0));
+        }else if(TquantExp==0.500f){ result.XSec_Exp      = Tlimit*(SignalScaleFactor/(result.LInt/2.0));
+        }else if(TquantExp==0.840f){ result.XSec_ExpUp    = Tlimit*(SignalScaleFactor/(result.LInt/2.0));
+        }else if(TquantExp==0.975f){ result.XSec_Exp2Up   = Tlimit*(SignalScaleFactor/(result.LInt/2.0));
+        }else if(TquantExp==-1    ){ result.XSec_Obs      = Tlimit*(SignalScaleFactor/(result.LInt/2.0));
+*/
+
+        printf("Quantile=%f --> Limit = %f, Tlimit=%f  fac=%f  XsecUnit=%f\n", TquantExp, Tlimit*(SignalScaleFactor/(XsecUnit)),Tlimit,SignalScaleFactor,XsecUnit);
+        printf("Quantile=%f --> Limit = %f\n", TquantExp, Tlimit*(SignalScaleFactor/(XsecUnit)));
+        if(TquantExp==0.025f){ result.XSec_Exp2Down = Tlimit*(SignalScaleFactor/(XsecUnit)); 
+        }else if(TquantExp==0.160f){ result.XSec_ExpDown  = Tlimit*(SignalScaleFactor/(XsecUnit));
+        }else if(TquantExp==0.500f){ result.XSec_Exp      = Tlimit*(SignalScaleFactor/(XsecUnit));
+        }else if(TquantExp==0.840f){ result.XSec_ExpUp    = Tlimit*(SignalScaleFactor/(XsecUnit));
+        }else if(TquantExp==0.975f){ result.XSec_Exp2Up   = Tlimit*(SignalScaleFactor/(XsecUnit));
+        }else if(TquantExp==-1    ){ result.XSec_Obs      = Tlimit*(SignalScaleFactor/(XsecUnit));
         }else{printf("Quantil %f unused by the analysis --> check the code\n", TquantExp);
         }
       }
@@ -3161,9 +3633,21 @@ bool Combine(string InputPattern, string signal1, string signal2){
 
 
 bool useSample(int TypeMode, string sample) {
-  if(TypeMode==0 && (sample=="Gluino16_f10" || sample=="Gluino16N_f10" || sample=="Stop16N" || sample=="Stop16" || sample=="DY16_Q2o3" || sample=="GMStau16" || sample=="PPStau16")) return true;
-  if(TypeMode==2 && (sample=="Gluino16_f10" || sample=="Gluino16_f50" || sample=="Stop16" || sample=="GMStau16" || sample=="PPStau16" || sample=="DY16_Q2o3" || sample=="DY16_Q1")) return true;
-  if(TypeMode==3 && (sample=="Stop16" || sample=="Gluino16_f10" || sample=="Gluino16_f50" || sample=="Gluino16_f100")) return true;
+ /* mk 
+ if(TypeMode==0 && (sample=="Gluino16_f10" || sample=="Gluino16N_f10" || sample=="Stop16N" || sample=="Stop16" || sample=="DY16_Q2o3" || sample=="GMStau16" || sample=="PPStau16" ||
+    sample=="Gluino16G_f10" || sample=="Gluino16GN_f10" || sample=="Stop16GN" || sample=="Stop16G" || sample=="DY16G_Q2o3" || sample=="GMStau16G" || sample=="PPStau16G"))
+    return true;
+
+  if(TypeMode==2 && (sample=="Gluino16_f10" || sample=="Gluino16_f50" || sample=="Stop16" || sample=="GMStau16" || sample=="PPStau16" || sample=="DY16_Q2o3" || sample=="DY16_Q1" ||
+    sample=="Gluino16G_f10" || sample=="Gluino16G_f50" || sample=="Stop16G" || sample=="GMStau16G" || sample=="PPStau16G" || sample=="DY16G_Q2o3" || sample=="DY16G_Q1"))
+    return true;
+*/ //mk I want all samples for type0 and type2
+ if(TypeMode<3) return true;
+
+  if(TypeMode==3 && (sample=="Stop16" || sample=="Gluino16_f10" || sample=="Gluino16_f50" || sample=="Gluino16_f100" || 
+    sample=="Stop16G" || sample=="Gluino16G_f10" || sample=="Gluino16G_f50" || sample=="Gluino16G_f100"))
+    return true;
+
   if(TypeMode==4) return true;
   if(TypeMode==5) return true;
   return false;

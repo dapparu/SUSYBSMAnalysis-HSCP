@@ -13,9 +13,9 @@ types = set()
 #    types.add(anaType)
 
 def initProxy():
-   if(not os.path.isfile(os.path.expanduser('~/x509_user_proxy/x509_proxy')) or ((time.time() - os.path.getmtime(os.path.expanduser('~/x509_user_proxy/x509_proxy')))>600)):
+   if(not os.path.isfile(os.path.expanduser('~/private/x509_proxy')) or ((time.time() - os.path.getmtime(os.path.expanduser('~/private/x509_proxy')))>600)):
       print "You are going to run on a sample over grid using either CRAB or the AAA protocol, it is therefore needed to initialize your grid certificate"
-      os.system('mkdir -p ~/x509_user_proxy; voms-proxy-init --voms cms -valid 192:00 --out ~/x509_user_proxy/x509_proxy')#all must be done in the same command to avoid environement problems.  Note that the first sourcing is only needed in Louvain
+      os.system('voms-proxy-init --voms cms -valid 192:00 --out ~/private/x509_proxy')#all must be done in the same command to avoid environement problems.  Note that the first sourcing is only needed in Louvain
 
 types.add(0)
 types.add(2)
@@ -31,7 +31,7 @@ with open(samplesFiles) as ifile:
         for t in types:
             fp = indir+"Type{}".format(t)+"/"+expectedFileName
 #            if not os.path.isfile(fp) or os.path.getsize(fp)<1024:
-            if os.path.isfile(fp) and os.path.getsize(fp)<1024:
+            if (os.path.isfile(fp) and os.path.getsize(fp)<1024) or not os.path.isfile(fp):
                 typeString = ", {},".format(t)
                 for root, _, files in os.walk(jobfilesdir):
                     for f in files:
@@ -42,6 +42,10 @@ with open(samplesFiles) as ifile:
                         todo.append(f)
                         print f
 
+
+
+from pdb import set_trace
+
 newcmd = open("newcmd.cmd", "w")
 newcmd.write('#!/bin/bash\n')
 for i, executable in enumerate(todo):
@@ -49,9 +53,9 @@ for i, executable in enumerate(todo):
 #      toWrite = 'bsub -q 8nh -J HSCPResub_%i \'%s%s 0 ele\'' % (i, os.environ['CMSSW_BASE'], executable)
 #   elif os.environ['HOST'].find('ingrid'):
 #      toWrite = 'sbatch --partition=Def --qos=normal --wckey=cms %s\n' % executable
-   toWrite = 'sbatch --partition=Def --qos=normal --wckey=cms FARM/inputs/%s\n' % executable
+   toWrite = 'sbatch --partition=Def --qos=normal --wckey=cms FARM/inputs/%s' % executable
    print toWrite
-   newcmd.write(toWrite)
+   newcmd.write(toWrite+'\n')
 newcmd.close()
 
 #initProxy()

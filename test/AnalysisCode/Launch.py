@@ -10,15 +10,17 @@ import commands
 import time
 
 LaunchOnCondor.Jobs_InitCmds       = ['ulimit -c 0;']  #disable production of core dump in case of job crash
-LaunchOnCondor.Jobs_Queue = '8nh'
+LaunchOnCondor.subTool = 'condor'
+#LaunchOnCondor.Jobs_Queue = '8nh'
 
-UseRemoteSamples          = False#True
-RemoteStorageDir          = '/storage/data/cms/store/user/jozobec/HSCP2016/'
-RemoteServer              = 'ingrid-se03.cism.ucl.ac.be'
-#RemoteStorageDir          = '/store/group/phys_exotica/hscp/'
+UseRemoteSamples          = True
+#RemoteStorageDir          = '/storage/data/cms/store/user/jozobec/HSCP2016/'
+#RemoteServer              = 'cms-xrd-global.cern.ch'
+RemoteServer              = 'eoscms.cern.ch'
+RemoteStorageDir          = '//eos/cms/store/group/phys_exotica/hscp/'
 
 #the vector below contains the "TypeMode" of the analyses that should be run
-AnalysesToRun = [0,2]#,4]#,3,5]
+AnalysesToRun = [0,2]#,2]#,4]#,3,5]
 
 CMSSW_74X_VERSION = '7_4_16'
 base80X = os.environ['CMSSW_BASE']
@@ -60,14 +62,13 @@ def skipSamples(type, name):
    return False
 
 def initProxy():
-   if(not os.path.isfile(os.path.expanduser('~/x509_user_proxy/x509_proxy')) or ((time.time() - os.path.getmtime(os.path.expanduser('~/x509_user_proxy/x509_proxy')))>600)):
+   if(not os.path.isfile(os.path.expanduser('~/private/x509_proxy')) or ((time.time() - os.path.getmtime(os.path.expanduser('~/private/x509_proxy')))>600)):
       print "You are going to run on a sample over grid using either CRAB or the AAA protocol, it is therefore needed to initialize your grid certificate"
-      os.system('mkdir -p ~/x509_user_proxy; voms-proxy-init --voms cms -valid 192:00 --out ~/x509_user_proxy/x509_proxy')#all must be done in the same command to avoid environement problems.  Note that the first sourcing is only needed in Louvain
-
+      os.system('voms-proxy-init --voms cms -valid 192:00 --out ~/private/x509_proxy')#all must be done in the same command to avoid environement problems.  Note that the first sourcing is only needed in Louvain
 
 if sys.argv[1]=='1':	
         if UseRemoteSamples:
-           initProxy()
+	    initProxy()
         print 'ANALYSIS'
         FarmDirectory = "FARM"
         JobName = "HscpAnalysis"
@@ -82,15 +83,17 @@ if sys.argv[1]=='1':
            if((vals[0].replace('"','')) in CMSSW_VERSION):
               for Type in AnalysesToRun:
                  #LaunchOnCondor.Jobs_FinalCmds = ['mv *.root %s/src/SUSYBSMAnalysis/HSCP/test/AnalysisCode/Results/Type%i/' % (os.environ['CMSSW_BASE'], Type)]
-                 LaunchOnCondor.Jobs_FinalCmds = ['cp -r Results %s/src/SUSYBSMAnalysis/HSCP/test/AnalysisCode/ && rm -rf Results' % (os.environ['CMSSW_BASE'])]
+                 LaunchOnCondor.Jobs_FinalCmds = ['cp -r Results %s/src/SUSYBSMAnalysis/HSCP/test/%s/ && rm -rf Results' % (os.environ['CMSSW_BASE'], os.path.basename(os.getcwd()) if os.getcwd().find('AnalysisCode') > 0 else 'AnalysisCode')]
                  if(UseRemoteSamples):
-                    LaunchOnCondor.Jobs_InitCmds = ['ulimit -c 0', 'export HOME=%s' % os.environ['HOME'], 'export X509_USER_PROXY=$HOME/x509_user_proxy/x509_proxy; voms-proxy-init --noregen;', 'export REMOTESTORAGESERVER='+RemoteServer, 'export REMOTESTORAGEPATH='+RemoteStorageDir.replace('/storage/data/cms/store/', '//store/')]
+#by Je to run localy                    LaunchOnCondor.Jobs_InitCmds = ['ulimit -c 0', 'export X509_USER_PROXY=$1', 'export XRD_NETWORKSTACK=IPv4', 'export REMOTESTORAGESERVER='+RemoteServer, 'export REMOTESTORAGEPATH='+RemoteStorageDir.replace('/storage/data/cms/store/', '//store/')]
+                    LaunchOnCondor.Jobs_InitCmds = ['ulimit -c 0', 'export X509_USER_PROXY=$1', 'export XRD_NETWORKSTACK=IPv4', 'export REMOTESTORAGESERVER='+RemoteServer, 'export REMOTESTORAGEPATH='+RemoteStorageDir]
                  else: LaunchOnCondor.Jobs_InitCmds = ['ulimit -c 0']
                  if(int(vals[1])>=2 and skipSamples(Type, vals[2])==True):continue
-#                 if(int(vals[1])==0):continue
+                 if vals[2].find("13TeV16") < 0: continue # skip everything that is not 2016 -- namely the 2015 samples
+#                 if(int(vals[1])!=1):continue #Skip everything except for background MC
                  LaunchOnCondor.SendCluster_Push(["FWLITE", os.getcwd()+"/Analysis_Step1_EventLoop.C", '"ANALYSE_'+str(index)+'_to_'+str(index)+'"'  , Type, vals[2].rstrip() ])
         f.close()
-        LaunchOnCondor.SendCluster_Submit()
+# do not submit        LaunchOnCondor.SendCluster_Submit()
 
 elif sys.argv[1]=='2':
         print 'MERGING FILE AND PREDICTING BACKGROUNDS'  
@@ -100,14 +103,14 @@ elif sys.argv[1]=='2':
         LaunchOnCondor.SendCluster_Create(FarmDirectory, JobName)
         for Type in AnalysesToRun:
            Path = "Results/Type"+str(Type)+"/"
-           os.system('rm -f ' + Path + 'Histos.root')
+#mk           os.system('rm -f ' + Path + 'Histos.root')
            #os.system('hadd -f ' + Path + 'Histos.root ' + Path + '*.root')           
-           smallFiles = commands.getstatusoutput('find ' + Path + 'Histos_*.root  -type f -size -1024c -exec ls -lSh {} +')[1]
-           if(len(smallFiles)>1):
-              print("Small files have been found, these are generally due to either crashed jobs, or to still running jobs.\nThe following files will NOT be hadd:\n" + smallFiles + "\n\n")           
-           os.system('find ' + Path + 'Histos_*.root  -type f -size +1024c | xargs hadd -f ' + Path + 'Histos.root ')
+#mk           smallFiles = commands.getstatusoutput('find ' + Path + 'Histos_*.root  -type f -size -1024c -exec ls -lSh {} +')[1]
+#mk           if(len(smallFiles)>1):
+#mk              print("Small files have been found, these are generally due to either crashed jobs, or to still running jobs.\nThe following files will NOT be hadd:\n" + smallFiles + "\n\n")           
+#mk           os.system('find ' + Path + 'Histos_*.root  -type f -size +1024c | xargs hadd -n 50 -f ' + Path + 'Histos.root ')
            LaunchOnCondor.SendCluster_Push(["ROOT", os.getcwd()+"/Analysis_Step2_BackgroundPrediction.C", '"'+Path+'"'])
-        LaunchOnCondor.SendCluster_Submit()
+#        LaunchOnCondor.SendCluster_Submit()
 
 elif sys.argv[1]=='3':
         print 'PLOTTING'
@@ -141,15 +144,16 @@ elif sys.argv[1]=='4':
         LaunchOnCondor.Jobs_RunHere = 1
         LaunchOnCondor.SendCluster_Create(FarmDirectory, JobName)
 
-        if not os.path.isdir('%s/src/HiggsAnalysis' % base74X):
-           print 'Error: %s/src/HiggsAnalysis does not exist' % base74X
-           print 'Make sure you set up the correct CMSSW_7_4_X version and path in base74X variable.'
-           print 'Exiting.'
-           sys.exit()
         if not os.path.islink('%s/src/HiggsAnalysis' % base80X):
-           print 'Creating the symlink to HiggsAnalysis/CombinedLimit tool from 74X'
-           print 'cd %s/src && ln -s %s/src/HiggsAnalysis' % (base80X, base74X)
-           os.system('cd %s/src && ln -s %s/src/HiggsAnalysis' % (base80X, base74X))
+           if not os.path.isdir('%s/src/HiggsAnalysis' % base74X):
+              print 'Error: %s/src/HiggsAnalysis does not exist' % base74X
+              print 'Make sure you set up the correct CMSSW_7_4_X version and path in base74X variable.'
+              print 'Exiting.'
+              sys.exit()
+           if not os.path.islink('%s/src/HiggsAnalysis' % base80X):
+              print 'Creating the symlink to HiggsAnalysis/CombinedLimit tool from 74X'
+              print 'cd %s/src && ln -s %s/src/HiggsAnalysis' % (base80X, base74X)
+              os.system('cd %s/src && ln -s %s/src/HiggsAnalysis' % (base80X, base74X))
 
         LaunchOnCondor.Jobs_InitCmds += ['cd %s/src' % base74X, 'eval `scramv1 runtime -sh`', 'cd -']
 
@@ -158,7 +162,8 @@ elif sys.argv[1]=='4':
            if(line.startswith('#')):continue
            vals=line.split(',')
            if(int(vals[1])<2):continue
-#           if vals[2].find("13TeV16") == -1: continue
+           if vals[2].find("13TeV16") == -1: continue # remove if you want to run on 2015 samples also
+           if vals[2].find("13TeV16G") > 0: continue # only run on the 13TeV16 pre-G for combine
            for Type in AnalysesToRun:            
               if(int(vals[1])>=2 and skipSamples(Type, vals[2])==True):continue     
               skip = False
@@ -176,7 +181,9 @@ elif sys.argv[1]=='4':
 #              #print vals[2] + "   " + str(skip)
 
               Path = "Results/Type"+str(Type)+"/"
-              LaunchOnCondor.SendCluster_Push(["ROOT", os.getcwd()+"/Analysis_Step4_LimitComputation.C", '"COMPUTELIMIT2016"', '"'+Path+'"', vals[2] ]) #compute 2015, 2016 and 2015+2016 in the same job
+#              LaunchOnCondor.SendCluster_Push(["ROOT", os.getcwd()+"/Analysis_Step4_LimitComputation.C", '"COMPUTELIMIT2016"' if vals[2].find("13TeV16G") == -1 else '"COMPUTELIMIT2016G"', '"'+Path+'"', vals[2] ]) # compute separately 2016 preG and postG
+
+              LaunchOnCondor.SendCluster_Push(["ROOT", os.getcwd()+"/Analysis_Step4_LimitComputation.C", '"COMBINE2016"', '"'+Path+'"', vals[2] ]) #combine 2016 preG, postG, and combined 2016 in the same job
         f.close()
         LaunchOnCondor.SendCluster_Submit()
 
